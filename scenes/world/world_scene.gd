@@ -39,7 +39,6 @@ var inspected_cell: Vector2i = Vector2i.ZERO
 @onready var mining_radius_value: Label = $console_layer/godmode_panel/mining_radius_value
 @onready var square_button: Button = $console_layer/godmode_panel/square_button
 @onready var circle_button: Button = $console_layer/godmode_panel/circle_button
-@onready var godmode_summary: Label = $console_layer/godmode_panel/godmode_summary
 
 
 func _ready() -> void:
@@ -552,14 +551,9 @@ func _refresh_godmode_ui() -> void:
 	mining_power_slider.value = debug_settings.mining_power
 	mining_power_value.text = "Power %d" % int(round(debug_settings.mining_power))
 	mining_radius_slider.value = debug_settings.mining_radius
-	mining_radius_value.text = "Radius %d" % debug_settings.mining_radius
+	mining_radius_value.text = "Size %d" % debug_settings.mining_radius
 	square_button.button_pressed = debug_settings.mining_shape == WorldConstantsClass.ToolShape.SQUARE
 	circle_button.button_pressed = debug_settings.mining_shape == WorldConstantsClass.ToolShape.CIRCLE
-	godmode_summary.text = "Shape %s  Radius %d  Power %d" % [
-		_get_shape_name(debug_settings.mining_shape),
-		debug_settings.mining_radius,
-		int(round(debug_settings.mining_power))
-	]
 
 
 func _on_console_input_text_submitted(new_text: String) -> void:
@@ -611,14 +605,14 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 		queue_redraw()
 		return
 
-	if command == "godmode on":
+	if command == "godmode 1":
 		debug_settings.set_godmode_enabled(true)
 		_refresh_godmode_ui()
 		console_input.text = ""
 		queue_redraw()
 		return
 
-	if command == "godmode off":
+	if command == "godmode 0":
 		debug_settings.set_godmode_enabled(false)
 		_refresh_godmode_ui()
 		console_input.text = ""
