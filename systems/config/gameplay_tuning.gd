@@ -15,6 +15,11 @@ const DEFAULT_MINING_POWER: float = 150.0
 # Used by: `mining_tool_profiles.gd`, `runtime_debug_settings.gd`.
 const DEFAULT_MINING_RADIUS: int = 2
 
+# Base logical placement radius used by the default placement tool behavior.
+# Expected range: 1 to 10.
+# Used by: `world_scene.gd`.
+const DEFAULT_PLACEMENT_RADIUS: int = DEFAULT_MINING_RADIUS
+
 # Maximum world-space mining reach from the player center, measured in logical cells.
 # Used by: `world_scene.gd`.
 const MINING_RANGE_CELLS: float = 12.0
@@ -34,6 +39,10 @@ const MINING_USE_DIRECTIONAL_SPEED_FALLOFF: bool = false
 # Used by: `mining_tool_profiles.gd`, `runtime_debug_settings.gd`.
 const DEFAULT_MINING_SHAPE: int = WorldConstantsClass.ToolShape.SQUARE
 
+# Default placement shape used when returning materials to the world.
+# Used by: `world_scene.gd`.
+const DEFAULT_PLACEMENT_SHAPE: int = DEFAULT_MINING_SHAPE
+
 # Allowed developer tuning bounds for runtime mining power edits.
 # Used by: `runtime_debug_settings.gd`.
 const MINING_POWER_MIN: float = 1.0
@@ -43,6 +52,34 @@ const MINING_POWER_MAX: float = 500.0
 # Used by: `runtime_debug_settings.gd`.
 const MINING_RADIUS_MIN: int = 1
 const MINING_RADIUS_MAX: int = 10
+
+# Maximum total number of terrain tiles the player can carry.
+# Used by: `inventory_data.gd`, `world_scene.gd`.
+const INVENTORY_CAPACITY: int = 100
+
+# Maximum total carried material weight.
+# Used by: `inventory_data.gd`, `world_scene.gd`.
+const INVENTORY_WEIGHT_CAPACITY: float = 100.0
+
+# Minimum allowed inventory capacity for runtime debug edits.
+# Used by: `world_scene.gd`.
+const INVENTORY_CAPACITY_MIN: int = 0
+
+# Maximum allowed inventory capacity for runtime debug edits.
+# Used by: `world_scene.gd`.
+const INVENTORY_CAPACITY_MAX: int = 9999
+
+# Minimum allowed inventory weight capacity for runtime debug edits.
+# Used by: `world_scene.gd`.
+const INVENTORY_WEIGHT_CAPACITY_MIN: float = 0.0
+
+# Maximum allowed inventory weight capacity for runtime debug edits.
+# Used by: `world_scene.gd`.
+const INVENTORY_WEIGHT_CAPACITY_MAX: float = 99999.0
+
+# Default selected placement material when the scene starts.
+# Used by: `world_scene.gd`.
+const DEFAULT_SELECTED_MATERIAL: int = WorldConstantsClass.CellType.DIRT
 
 
 # Movement
@@ -82,6 +119,26 @@ const PLAYER_DEBUG_COLOR: Color = Color(0.98, 0.84, 0.28, 0.92)
 # Used by: `world_scene.gd`.
 const PLAYER_DEBUG_OUTLINE_COLOR: Color = Color(1.0, 0.96, 0.62, 1.0)
 
+# Vertical offset for the carried material pile visual above the player.
+# Used by: `world_scene.gd`.
+const PLAYER_CARRIED_PILE_OFFSET_Y: float = -10.0
+
+# Maximum world-space height of the carried material pile visual.
+# Used by: `world_scene.gd`.
+const PLAYER_CARRIED_PILE_MAX_HEIGHT: float = 18.0
+
+# Maximum world-space width of the carried material pile visual.
+# Used by: `world_scene.gd`.
+const PLAYER_CARRIED_PILE_MAX_WIDTH: float = 16.0
+
+# Minimum world-space height of the carried material pile visual.
+# Used by: `world_scene.gd`.
+const PLAYER_CARRIED_PILE_MIN_HEIGHT: float = 4.0
+
+# Minimum world-space width of the carried material pile visual.
+# Used by: `world_scene.gd`.
+const PLAYER_CARRIED_PILE_MIN_WIDTH: float = 6.0
+
 
 # Developer Debug
 # Whether the godmode developer panel starts enabled by default.
@@ -109,6 +166,46 @@ const DEBUG_OVERLAY_DEFAULT_ENABLED: bool = false
 # Hovered cell outline color for debug visualization.
 # Used by: `world_scene.gd`.
 const DEBUG_HOVER_CELL_COLOR: Color = Color(1.0, 1.0, 1.0, 0.16)
+
+# Placement preview color when the selected material can be placed.
+# Used by: `world_scene.gd`.
+const PLACEMENT_PREVIEW_VALID_FILL_COLOR: Color = Color(0.42, 1.0, 0.52, 0.24)
+
+# Placement preview outline when the selected material can be placed.
+# Used by: `world_scene.gd`.
+const PLACEMENT_PREVIEW_VALID_OUTLINE_COLOR: Color = Color(0.42, 1.0, 0.52, 0.95)
+
+# Placement preview color when placement is blocked.
+# Used by: `world_scene.gd`.
+const PLACEMENT_PREVIEW_INVALID_FILL_COLOR: Color = Color(1.0, 0.3, 0.3, 0.22)
+
+# Placement preview outline when placement is blocked.
+# Used by: `world_scene.gd`.
+const PLACEMENT_PREVIEW_INVALID_OUTLINE_COLOR: Color = Color(1.0, 0.3, 0.3, 0.95)
+
+# Radius of a dropped material pile visual in world pixels.
+# Used by: `world_scene.gd`.
+const DROPPED_MATERIAL_VISUAL_RADIUS: float = 3.0
+
+# Vertical offset between stacked dropped-material circles.
+# Used by: `world_scene.gd`.
+const DROPPED_MATERIAL_STACK_OFFSET: float = 2.0
+
+# Outline color for the hovered dropped material cell.
+# Used by: `world_scene.gd`.
+const DROPPED_MATERIAL_HOVER_OUTLINE_COLOR: Color = Color(1.0, 0.95, 0.72, 0.95)
+
+# Cell radius used to merge nearby dropped materials into a shared pile.
+# Used by: `world_scene.gd`, `material_drop_data.gd`.
+const DROPPED_MATERIAL_MERGE_RADIUS_CELLS: int = 2
+
+# Fill color for the dropped material hover tooltip.
+# Used by: `world_scene.gd`.
+const DROPPED_MATERIAL_TOOLTIP_FILL_COLOR: Color = Color(0.08, 0.09, 0.12, 0.92)
+
+# Outline color for the dropped material hover tooltip.
+# Used by: `world_scene.gd`.
+const DROPPED_MATERIAL_TOOLTIP_OUTLINE_COLOR: Color = Color(0.95, 0.9, 0.72, 0.95)
 
 
 # Terrain
@@ -150,6 +247,14 @@ const STONE_MINING_RESISTANCE: float = 50.0
 # Used by: `world_materials.gd`.
 const DIRT_DEBUG_COLOR: Color = Color(0.56, 0.35, 0.22, 1.0)
 const STONE_DEBUG_COLOR: Color = Color(0.5, 0.54, 0.6, 1.0)
+
+# Inventory carry weight per dirt tile.
+# Used by: `world_materials.gd`, `inventory_data.gd`.
+const DIRT_INVENTORY_WEIGHT: float = 0.2
+
+# Inventory carry weight per stone tile.
+# Used by: `world_materials.gd`, `inventory_data.gd`.
+const STONE_INVENTORY_WEIGHT: float = 0.7
 
 
 # Mining Visualization

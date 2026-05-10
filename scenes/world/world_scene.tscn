@@ -29,7 +29,7 @@ visible = false
 offset_left = 16.0
 offset_top = 80.0
 offset_right = 336.0
-offset_bottom = 152.0
+offset_bottom = 228.0
 
 [node name="mining_power_slider" type="HSlider" parent="console_layer/godmode_panel"]
 offset_left = 12.0
@@ -80,6 +80,34 @@ offset_top = 92.0
 offset_right = 204.0
 offset_bottom = 124.0
 text = "Circle"
+
+[node name="selected_material_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 136.0
+offset_right = 308.0
+offset_bottom = 156.0
+text = "Selected DIRT"
+
+[node name="inventory_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 156.0
+offset_right = 308.0
+offset_bottom = 176.0
+text = "Inventory 0/100"
+
+[node name="material_counts_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 176.0
+offset_right = 308.0
+offset_bottom = 196.0
+text = "DIRT 0 STONE 0"
+
+[node name="placement_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 196.0
+offset_right = 308.0
+offset_bottom = 216.0
+text = "Placement square size 2"
 
 [connection signal="text_submitted" from="console_layer/console_panel/console_input" to="." method="_on_console_input_text_submitted"]
 [connection signal="value_changed" from="console_layer/godmode_panel/mining_power_slider" to="." method="_on_mining_power_slider_value_changed"]

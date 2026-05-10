@@ -4,23 +4,23 @@ extends RefCounted
 var progress_by_cell: Dictionary = {}
 
 
-func add_progress(cell_position: Vector2i, amount: float) -> float:
-	var next_progress: float = clampf(get_progress(cell_position) + amount, 0.0, 1.0)
+func set_progress(cell_position: Vector2i, progress: float) -> float:
+	var next_progress: float = clampf(progress, 0.0, 1.0)
 
 	if next_progress <= 0.0:
 		remove_progress(cell_position)
 		return 0.0
 
-	if next_progress >= 1.0:
-		remove_progress(cell_position)
-		return 1.0
-
 	progress_by_cell[cell_position] = next_progress
 	return next_progress
 
 
+func add_progress(cell_position: Vector2i, amount: float) -> float:
+	return set_progress(cell_position, get_progress(cell_position) + amount)
+
+
 func get_progress(cell_position: Vector2i) -> float:
-	return progress_by_cell.get(cell_position, 0.0)
+	return float(progress_by_cell.get(cell_position, 0.0))
 
 
 func has_progress(cell_position: Vector2i) -> bool:
