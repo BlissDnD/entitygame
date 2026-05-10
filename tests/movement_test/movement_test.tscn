@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://tests/movement_test/movement_test_player.gd" id="1_movement_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(32, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(640, 32)
+
+[node name="movement_test" type="Node2D"]
+
+[node name="origin_marker" type="Polygon2D" parent="."]
+position = Vector2(96, 96)
+color = Color(0.35, 0.35, 0.35, 1)
+polygon = PackedVector2Array(-8, -8, 8, -8, 8, 8, -8, 8)
+
+[node name="player" type="CharacterBody2D" parent="."]
+position = Vector2(0, -120)
+script = ExtResource("1_movement_player")
+
+[node name="placeholder" type="Polygon2D" parent="player"]
+color = Color(0.2, 0.65, 1, 1)
+polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
+
+[node name="collision_shape_2d" type="CollisionShape2D" parent="player"]
+shape = SubResource("RectangleShape2D_player")
+
+[node name="camera_2d" type="Camera2D" parent="player"]
+enabled = true
+
+[node name="floor" type="StaticBody2D" parent="."]
+position = Vector2(0, 80)
+
+[node name="placeholder" type="Polygon2D" parent="floor"]
+color = Color(0.3, 0.85, 0.45, 1)
+polygon = PackedVector2Array(-320, -16, 320, -16, 320, 16, -320, 16)
+
+[node name="collision_shape_2d" type="CollisionShape2D" parent="floor"]
+shape = SubResource("RectangleShape2D_floor")
