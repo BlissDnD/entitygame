@@ -5,7 +5,6 @@ const WorldConstantsClass = preload("res://systems/world/world_constants.gd")
 const WorldUtilsClass = preload("res://systems/world/world_utils.gd")
 const ChunkDataClass = preload("res://systems/world/chunk_data.gd")
 const DirtyChunkSystemClass = preload("res://systems/world/dirty_chunk_system.gd")
-
 var chunks: Dictionary = {}
 var dirty_chunk_system = DirtyChunkSystemClass.new()
 
@@ -52,7 +51,7 @@ func set_cell(cell_position: Vector2i, cell_type: int) -> void:
 	if not chunk_data.set_cell(local_cell_position, cell_type):
 		return
 
-	dirty_chunk_system.mark_chunk_dirty(chunk_position)
+	_mark_terrain_change_dirty(cell_position)
 	_cleanup_chunk_if_empty(chunk_position, chunk_data)
 
 
@@ -66,7 +65,7 @@ func remove_cell(cell_position: Vector2i) -> void:
 	if not chunk_data.remove_cell(local_cell_position):
 		return
 
-	dirty_chunk_system.mark_chunk_dirty(chunk_position)
+	_mark_terrain_change_dirty(cell_position)
 	_cleanup_chunk_if_empty(chunk_position, chunk_data)
 
 
@@ -120,6 +119,23 @@ func get_damage_stage(cell_position: Vector2i) -> int:
 	return chunk_data.get_damage_stage(WorldUtilsClass.cell_to_local_in_chunk(cell_position))
 
 
+func is_solid_at_world(world_position: Vector2) -> bool:
+	var cell_position: Vector2i = WorldUtilsClass.world_to_cell(world_position)
+	return get_cell(cell_position) != WorldConstantsClass.CellType.AIR
+
+
+func intersects_solid_rect(world_rect: Rect2) -> bool:
+	var start_cell: Vector2i = WorldUtilsClass.world_to_cell(world_rect.position)
+	var end_cell: Vector2i = WorldUtilsClass.world_to_cell(world_rect.end - Vector2.ONE)
+
+	for cell_y in range(start_cell.y, end_cell.y + 1):
+		for cell_x in range(start_cell.x, end_cell.x + 1):
+			if get_cell(Vector2i(cell_x, cell_y)) != WorldConstantsClass.CellType.AIR:
+				return true
+
+	return false
+
+
 func get_existing_chunk_positions_in_rect(chunk_min: Vector2i, chunk_max: Vector2i) -> Array[Vector2i]:
 	var visible_chunk_positions: Array[Vector2i] = []
 
@@ -161,6 +177,10 @@ func clear_chunk_dirty(chunk_position: Vector2i) -> void:
 func clear() -> void:
 	chunks.clear()
 	dirty_chunk_system.clear()
+
+
+func _mark_terrain_change_dirty(cell_position: Vector2i) -> void:
+	dirty_chunk_system.mark_chunk_dirty(WorldUtilsClass.cell_to_chunk(cell_position))
 
 
 func _cleanup_chunk_if_empty(chunk_position: Vector2i, chunk_data) -> void:

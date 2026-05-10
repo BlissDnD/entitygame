@@ -51,7 +51,7 @@ func draw_visible_chunks(canvas_item: CanvasItem, view_origin: Vector2, view_siz
 			cache_entry = chunk_cache[chunk_position]
 
 		if chunk_data.dirty or cache_entry.is_empty() or world_data.dirty_chunk_system.is_chunk_dirty(chunk_position):
-			cache_entry = chunk_renderer.rebuild_chunk_texture(chunk_data)
+			cache_entry = chunk_renderer.rebuild_chunk_texture(world_data, chunk_data)
 			chunk_cache[chunk_position] = cache_entry
 			world_data.clear_chunk_dirty(chunk_position)
 			rebuild_count += 1

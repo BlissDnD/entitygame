@@ -7,13 +7,14 @@ const WorldMaterialsClass = preload("res://systems/world/world_materials.gd")
 const GameplayTuningClass = preload("res://systems/config/gameplay_tuning.gd")
 
 
-func rebuild_chunk_texture(chunk_data) -> Dictionary:
+func rebuild_chunk_texture(_world_data, chunk_data) -> Dictionary:
 	var chunk_pixel_size: Vector2i = Vector2i(
 		WorldConstantsClass.CHUNK_SIZE_CELLS.x * WorldConstantsClass.CELL_SIZE.x,
 		WorldConstantsClass.CHUNK_SIZE_CELLS.y * WorldConstantsClass.CELL_SIZE.y
 	)
 	var chunk_image: Image = Image.create(chunk_pixel_size.x, chunk_pixel_size.y, false, Image.FORMAT_RGBA8)
 	chunk_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var chunk_world_origin: Vector2 = WorldUtilsClass.chunk_to_world(chunk_data.chunk_position)
 
 	var visible_cell_count: int = 0
 	for local_cell_position in chunk_data.get_used_local_cells():
@@ -34,7 +35,7 @@ func rebuild_chunk_texture(chunk_data) -> Dictionary:
 	return {
 		"texture": chunk_texture,
 		"visible_cell_count": visible_cell_count,
-		"world_position": WorldUtilsClass.chunk_to_world(chunk_data.chunk_position),
+		"world_position": chunk_world_origin,
 	}
 
 

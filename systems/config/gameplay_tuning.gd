@@ -81,20 +81,6 @@ const INVENTORY_WEIGHT_CAPACITY_MAX: float = 99999.0
 # Used by: `world_scene.gd`.
 const DEFAULT_SELECTED_MATERIAL: int = WorldConstantsClass.CellType.DIRT
 
-# Logical center of the prototype planet.
-# Used by: `world_scene.gd`.
-const PLANET_CENTER_CELL: Vector2i = Vector2i(0, 180)
-
-# Outer radius of the prototype planet in logical cells.
-# Larger values make the visible horizon feel flatter.
-# Used by: `world_scene.gd`.
-const PLANET_RADIUS_CELLS: int = 1600
-
-# Thickness of the dirt shell on the planet surface in logical cells.
-# Used by: `world_scene.gd`.
-const PLANET_DIRT_DEPTH_CELLS: int = 4
-
-
 # Movement
 # Prototype player size in logical cells.
 # Used by: `world_scene.gd`.
@@ -114,7 +100,7 @@ const PLAYER_GRAVITY: float = 980.0
 
 # Initial player spawn position in world space for the prototype scene.
 # Used by: `world_scene.gd`.
-const PLAYER_SPAWN_WORLD_POSITION: Vector2 = Vector2(-12.0, -96.0)
+const PLAYER_SPAWN_WORLD_POSITION: Vector2 = Vector2(-12.0, 0.0)
 
 # Number of logical cells visible horizontally in the prototype camera framing.
 # Used by: `world_scene.gd`.

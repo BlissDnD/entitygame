@@ -21,7 +21,6 @@ var inventory_data: InventoryData = InventoryDataClass.new(
 	GameplayTuningClass.INVENTORY_CAPACITY,
 	GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY
 )
-var planet_center: Vector2 = Vector2.ZERO
 var player_world_position: Vector2 = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
 var player_velocity: Vector2 = Vector2.ZERO
 var hovered_cell: Vector2i = Vector2i.ZERO
@@ -54,9 +53,8 @@ var last_render_stats: Dictionary = {}
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
 	_generate_test_terrain()
-	planet_center = _get_planet_center_world()
-	player_world_position = _get_planet_surface_spawn_position()
-	camera_2d.ignore_rotation = false
+	camera_2d.ignore_rotation = true
+	player_world_position = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
 	_set_console_visible(false)
 	_update_godmode_visibility()
 	_update_hover_state()
@@ -164,32 +162,29 @@ func _draw() -> void:
 func _update_player(delta: float) -> bool:
 	var previous_position: Vector2 = player_world_position
 	var input_axis: float = Input.get_axis("move_left", "move_right")
-	var player_center: Vector2 = _get_player_center_world()
-	var up_direction: Vector2 = _get_up_direction(player_center)
-	var gravity_direction: Vector2 = -up_direction
-	var tangent_direction: Vector2 = Vector2(-up_direction.y, up_direction.x)
-	var radial_speed: float = player_velocity.dot(gravity_direction)
+	var horizontal_speed: float = input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED
 	var is_on_floor: bool = _is_player_on_floor()
 
-	radial_speed += GameplayTuningClass.PLAYER_GRAVITY * delta
+	player_velocity.y += GameplayTuningClass.PLAYER_GRAVITY * delta
 
 	if Input.is_action_just_pressed("move_up") and is_on_floor:
-		radial_speed = GameplayTuningClass.PLAYER_JUMP_VELOCITY
+		player_velocity.y = GameplayTuningClass.PLAYER_JUMP_VELOCITY
 
 	if is_on_floor:
-		_move_player_grounded(input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED * delta)
-		player_velocity = gravity_direction * radial_speed
-		_move_player(player_velocity * delta)
+		player_velocity.x = 0.0
+		_move_player_grounded(horizontal_speed * delta)
+		if player_velocity.y > 0.0:
+			player_velocity.y = 0.0
 	else:
-		player_velocity = tangent_direction * (input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED)
-		player_velocity += gravity_direction * radial_speed
-		_move_player(player_velocity * delta)
+		player_velocity.x = horizontal_speed
+
+	if is_on_floor:
+		_move_player(Vector2(0.0, player_velocity.y * delta))
+	else:
+		_move_player(Vector2(player_velocity.x * delta, player_velocity.y * delta))
 
 	if _is_player_on_floor():
-		var ground_gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
-		var inward_speed: float = player_velocity.dot(ground_gravity_direction)
-		if inward_speed > 0.0:
-			player_velocity -= ground_gravity_direction * inward_speed
+		player_velocity.y = minf(player_velocity.y, 0.0)
 
 	return player_world_position != previous_position
 
@@ -204,28 +199,24 @@ func _move_player_grounded(surface_distance: float) -> void:
 	var guard_limit: int = 4096
 
 	while absf(remaining_distance) > 0.0 and guard_steps < guard_limit:
-		var player_center: Vector2 = _get_player_center_world()
-		var up_direction: Vector2 = _get_up_direction(player_center)
-		var gravity_direction: Vector2 = -up_direction
-		var tangent_direction: Vector2 = Vector2(-up_direction.y, up_direction.x) * step_sign
 		var step_distance: float = minf(absf(remaining_distance), 1.0)
-		var next_position: Vector2 = player_world_position + (tangent_direction * step_distance)
-		var resolved_position: Vector2 = _resolve_grounded_step_position(next_position, gravity_direction)
+		var next_position: Vector2 = player_world_position + Vector2(step_sign * step_distance, 0.0)
+		var resolved_position: Vector2 = _resolve_grounded_step_position(next_position)
 		if resolved_position == player_world_position:
 			break
 
 		player_world_position = resolved_position
-		_settle_player_to_floor(4)
+		_settle_player_to_floor(WorldConstantsClass.CELL_SIZE.y + 2)
 		remaining_distance -= step_distance * step_sign
 		guard_steps += 1
 
 
-func _resolve_grounded_step_position(next_position: Vector2, gravity_direction: Vector2) -> Vector2:
+func _resolve_grounded_step_position(next_position: Vector2) -> Vector2:
 	if not _player_collides_at(next_position):
 		return next_position
 
 	for outward_steps in range(1, WorldConstantsClass.CELL_SIZE.y + 1):
-		var adjusted_position: Vector2 = next_position - (gravity_direction * float(outward_steps))
+		var adjusted_position: Vector2 = next_position + Vector2(0.0, -float(outward_steps))
 		if not _player_collides_at(adjusted_position):
 			return adjusted_position
 
@@ -233,12 +224,11 @@ func _resolve_grounded_step_position(next_position: Vector2, gravity_direction: 
 
 
 func _settle_player_to_floor(max_steps: int) -> void:
-	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
 	for step_index in range(max_steps):
 		if _is_player_on_floor():
 			return
 
-		var next_position: Vector2 = player_world_position + gravity_direction
+		var next_position: Vector2 = player_world_position + Vector2.DOWN
 		if _player_collides_at(next_position):
 			return
 
@@ -323,22 +313,18 @@ func _update_hover_state() -> bool:
 	return true
 
 
-func _apply_camera_tracking(delta: float) -> void:
+func _apply_camera_tracking(_delta: float) -> void:
 	var player_center: Vector2 = _get_player_center_world()
-	var desired_rotation: float = _get_player_surface_rotation()
 	camera_2d.position = player_center
-	camera_2d.rotation = desired_rotation
+	camera_2d.rotation = 0.0
 
 
 func _draw_player() -> void:
 	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
 	var player_center: Vector2 = _get_player_center_world()
-	var player_rotation: float = _get_player_surface_rotation()
-	var player_rect: Rect2 = Rect2(-player_size * 0.5, player_size)
-	draw_set_transform(player_center, player_rotation, Vector2.ONE)
+	var player_rect: Rect2 = Rect2(player_center - (player_size * 0.5), player_size)
 	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_COLOR, true)
 	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_OUTLINE_COLOR, false, 2.0)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_material_drops() -> void:
@@ -422,8 +408,7 @@ func _draw_carried_material_pile() -> void:
 	var capacity_ratio: float = maxf(count_ratio, weight_ratio)
 	var dominant_color: Color = _get_dominant_inventory_color()
 	var player_center: Vector2 = _get_player_center_world()
-	var player_rotation: float = _get_player_surface_rotation()
-	var local_pile_center: Vector2 = Vector2(0.0, GameplayTuningClass.PLAYER_CARRIED_PILE_OFFSET_Y)
+	var pile_center: Vector2 = player_center + Vector2(0.0, GameplayTuningClass.PLAYER_CARRIED_PILE_OFFSET_Y)
 	var pile_width: float = lerpf(
 		GameplayTuningClass.PLAYER_CARRIED_PILE_MIN_WIDTH,
 		GameplayTuningClass.PLAYER_CARRIED_PILE_MAX_WIDTH,
@@ -435,11 +420,9 @@ func _draw_carried_material_pile() -> void:
 		capacity_ratio
 	)
 
-	draw_set_transform(player_center, player_rotation, Vector2.ONE)
-	draw_circle(local_pile_center + Vector2(-pile_width * 0.18, 0.0), pile_width * 0.32, Color(dominant_color.r * 0.9, dominant_color.g * 0.9, dominant_color.b * 0.9, 0.9))
-	draw_circle(local_pile_center + Vector2(pile_width * 0.2, -pile_height * 0.2), pile_width * 0.28, Color(dominant_color.r, dominant_color.g, dominant_color.b, 0.95))
-	draw_circle(local_pile_center + Vector2(0.0, -pile_height * 0.42), pile_width * 0.22, Color(minf(dominant_color.r * 1.08, 1.0), minf(dominant_color.g * 1.08, 1.0), minf(dominant_color.b * 1.08, 1.0), 0.95))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_circle(pile_center + Vector2(-pile_width * 0.18, 0.0), pile_width * 0.32, Color(dominant_color.r * 0.9, dominant_color.g * 0.9, dominant_color.b * 0.9, 0.9))
+	draw_circle(pile_center + Vector2(pile_width * 0.2, -pile_height * 0.2), pile_width * 0.28, Color(dominant_color.r, dominant_color.g, dominant_color.b, 0.95))
+	draw_circle(pile_center + Vector2(0.0, -pile_height * 0.42), pile_width * 0.22, Color(minf(dominant_color.r * 1.08, 1.0), minf(dominant_color.g * 1.08, 1.0), minf(dominant_color.b * 1.08, 1.0), 0.95))
 
 
 func _draw_mining_range() -> void:
@@ -619,38 +602,25 @@ func _move_player(motion: Vector2) -> void:
 
 func _player_collides_at(test_position: Vector2) -> bool:
 	var player_rect: Rect2 = Rect2(test_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
-	var start_cell: Vector2i = WorldUtilsClass.world_to_cell(player_rect.position)
-	var end_cell: Vector2i = WorldUtilsClass.world_to_cell(player_rect.end - Vector2.ONE)
-
-	for cell_x in range(start_cell.x, end_cell.x + 1):
-		for cell_y in range(start_cell.y, end_cell.y + 1):
-			if world_data.get_cell(Vector2i(cell_x, cell_y)) != WorldConstantsClass.CellType.AIR:
-				return true
-
-	return false
+	return world_data.intersects_solid_rect(player_rect)
 
 
 func _is_player_on_floor() -> bool:
-	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
-	return _player_collides_at(player_world_position + gravity_direction)
+	return _player_collides_at(player_world_position + Vector2.DOWN)
 
 
 func _snap_player_to_ground() -> void:
-	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
 	var guard_limit: int = 4096
 	var guard_steps: int = 0
 
 	while not _is_player_on_floor() and guard_steps < guard_limit:
-		player_world_position += gravity_direction
+		player_world_position += Vector2.DOWN
 		guard_steps += 1
-		gravity_direction = _get_gravity_direction(_get_player_center_world())
 
 	guard_steps = 0
-	gravity_direction = _get_gravity_direction(_get_player_center_world())
 	while _player_collides_at(player_world_position) and guard_steps < guard_limit:
-		player_world_position -= gravity_direction
+		player_world_position += Vector2.UP
 		guard_steps += 1
-		gravity_direction = _get_gravity_direction(_get_player_center_world())
 
 
 func _generate_test_terrain() -> void:
@@ -659,26 +629,16 @@ func _generate_test_terrain() -> void:
 	material_drop_data.clear()
 	inventory_data.clear()
 	_refresh_godmode_ui()
-	var center_cell: Vector2i = GameplayTuningClass.PLANET_CENTER_CELL
-	var outer_radius: int = GameplayTuningClass.PLANET_RADIUS_CELLS
-	var dirt_depth: int = GameplayTuningClass.PLANET_DIRT_DEPTH_CELLS
-	var outer_radius_sq: int = outer_radius * outer_radius
-	var dirt_inner_radius: int = maxi(outer_radius - dirt_depth, 0)
-	var dirt_inner_radius_sq: int = dirt_inner_radius * dirt_inner_radius
+	var start_cell_x: int = -GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS
+	var end_cell_x: int = GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS
 
-	for cell_x in range(center_cell.x - outer_radius, center_cell.x + outer_radius + 1):
-		for cell_y in range(center_cell.y - outer_radius, center_cell.y + outer_radius + 1):
-			var local_x: int = cell_x - center_cell.x
-			var local_y: int = cell_y - center_cell.y
-			var distance_sq: int = (local_x * local_x) + (local_y * local_y)
+	for cell_y in range(GameplayTuningClass.SURFACE_START_DEPTH, GameplayTuningClass.SURFACE_START_DEPTH + GameplayTuningClass.SURFACE_DEPTH):
+		for cell_x in range(start_cell_x, end_cell_x + 1):
+			world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.DIRT)
 
-			if distance_sq > outer_radius_sq:
-				continue
-
-			if distance_sq >= dirt_inner_radius_sq:
-				world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.DIRT)
-			else:
-				world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.STONE)
+	for cell_y in range(GameplayTuningClass.STONE_LAYER_START_DEPTH, GameplayTuningClass.STONE_LAYER_END_DEPTH + 1):
+		for cell_x in range(-GameplayTuningClass.STONE_HALF_WIDTH_CELLS, GameplayTuningClass.STONE_HALF_WIDTH_CELLS + 1):
+			world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.STONE)
 
 
 func _get_view_origin_world() -> Vector2:
@@ -695,34 +655,6 @@ func _get_target_world_position() -> Vector2:
 	var pointer_offset: Vector2 = get_global_mouse_position() - player_center
 	var clamped_offset: Vector2 = pointer_offset.limit_length(max_range_pixels)
 	return player_center + clamped_offset
-
-
-func _get_planet_center_world() -> Vector2:
-	return _get_cell_center_world(GameplayTuningClass.PLANET_CENTER_CELL)
-
-
-func _get_up_direction(world_position: Vector2) -> Vector2:
-	var up_vector: Vector2 = world_position - planet_center
-	if up_vector == Vector2.ZERO:
-		return Vector2.UP
-
-	return up_vector.normalized()
-
-
-func _get_gravity_direction(world_position: Vector2) -> Vector2:
-	return -_get_up_direction(world_position)
-
-
-func _get_player_surface_rotation() -> float:
-	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
-	return gravity_direction.angle() - (PI * 0.5)
-
-
-func _get_planet_surface_spawn_position() -> Vector2:
-	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
-	var center_world: Vector2 = _get_planet_center_world()
-	var spawn_center: Vector2 = center_world + Vector2(0.0, -GameplayTuningClass.PLANET_RADIUS_CELLS * WorldConstantsClass.CELL_SIZE.y)
-	return spawn_center - (player_size * 0.5)
 
 
 func _get_preview_cells() -> Array[Vector2i]:
