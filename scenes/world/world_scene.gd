@@ -7,20 +7,21 @@ const WorldDataClass = preload("res://systems/world/world_data.gd")
 const WorldMaterialsClass = preload("res://systems/world/world_materials.gd")
 const WorldShapesClass = preload("res://systems/world/world_shapes.gd")
 const MiningToolProfilesClass = preload("res://systems/world/mining_tool_profiles.gd")
-const MiningProgressDataClass = preload("res://systems/world/mining_progress_data.gd")
 const MaterialDropDataClass = preload("res://systems/world/material_drop_data.gd")
+const WorldRendererClass = preload("res://systems/world/world_renderer.gd")
 const RuntimeDebugSettingsClass = preload("res://systems/world/runtime_debug_settings.gd")
 const InventoryDataClass = preload("res://systems/inventory/inventory_data.gd")
 
 var active_tool_profile: Dictionary = MiningToolProfilesClass.get_profile("starter_pickaxe")
 var debug_settings: RuntimeDebugSettings = RuntimeDebugSettingsClass.new()
-var world_data: WorldData = WorldDataClass.new()
-var mining_progress_data: MiningProgressData = MiningProgressDataClass.new()
-var material_drop_data: MaterialDropData = MaterialDropDataClass.new()
+var world_data = WorldDataClass.new()
+var world_renderer = WorldRendererClass.new(world_data)
+var material_drop_data = MaterialDropDataClass.new()
 var inventory_data: InventoryData = InventoryDataClass.new(
 	GameplayTuningClass.INVENTORY_CAPACITY,
 	GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY
 )
+var planet_center: Vector2 = Vector2.ZERO
 var player_world_position: Vector2 = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
 var player_velocity: Vector2 = Vector2.ZERO
 var hovered_cell: Vector2i = Vector2i.ZERO
@@ -31,6 +32,7 @@ var inspected_cell: Vector2i = Vector2i.ZERO
 var selected_material_id: int = GameplayTuningClass.DEFAULT_SELECTED_MATERIAL
 var block_mining_until_left_released: bool = false
 var hovered_drop_index: int = -1
+var last_render_stats: Dictionary = {}
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var console_layer: CanvasLayer = $console_layer
@@ -52,12 +54,14 @@ var hovered_drop_index: int = -1
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
 	_generate_test_terrain()
+	planet_center = _get_planet_center_world()
 	player_world_position = _get_planet_surface_spawn_position()
+	camera_2d.ignore_rotation = false
 	_set_console_visible(false)
 	_update_godmode_visibility()
 	_update_hover_state()
 	_snap_player_to_ground()
-	_update_camera_position()
+	_apply_camera_tracking(-1.0)
 	_refresh_godmode_ui()
 	queue_redraw()
 
@@ -73,7 +77,7 @@ func _process(delta: float) -> void:
 	if _update_hover_state():
 		should_redraw = true
 
-	_update_camera_position()
+	_apply_camera_tracking(delta)
 
 	if should_redraw:
 		queue_redraw()
@@ -137,18 +141,20 @@ func _draw() -> void:
 	)
 
 	draw_rect(Rect2(view_origin, view_size), Color(0.07, 0.08, 0.1, 1.0), true)
-	_draw_terrain_cells()
+	last_render_stats = world_renderer.draw_visible_chunks(self, view_origin, view_size)
 	_draw_material_drops()
-	_draw_player()
-	_draw_carried_material_pile()
-	if not _has_hovered_drop():
-		_draw_mining_preview()
-		_draw_placement_preview()
-
 	if debug_enabled:
 		_draw_mining_range()
 		if not _has_hovered_drop():
 			_draw_hovered_center()
+	if not _has_hovered_drop():
+		_draw_mining_preview()
+		_draw_placement_preview()
+
+	_draw_player()
+	_draw_carried_material_pile()
+
+	if debug_enabled:
 		_draw_labels()
 
 	if _has_hovered_drop():
@@ -159,18 +165,25 @@ func _update_player(delta: float) -> bool:
 	var previous_position: Vector2 = player_world_position
 	var input_axis: float = Input.get_axis("move_left", "move_right")
 	var player_center: Vector2 = _get_player_center_world()
-	var gravity_direction: Vector2 = _get_gravity_direction(player_center)
-	var tangent_direction: Vector2 = Vector2(-gravity_direction.y, gravity_direction.x)
+	var up_direction: Vector2 = _get_up_direction(player_center)
+	var gravity_direction: Vector2 = -up_direction
+	var tangent_direction: Vector2 = Vector2(-up_direction.y, up_direction.x)
 	var radial_speed: float = player_velocity.dot(gravity_direction)
+	var is_on_floor: bool = _is_player_on_floor()
 
 	radial_speed += GameplayTuningClass.PLAYER_GRAVITY * delta
 
-	if Input.is_action_just_pressed("move_up") and _is_player_on_floor():
+	if Input.is_action_just_pressed("move_up") and is_on_floor:
 		radial_speed = GameplayTuningClass.PLAYER_JUMP_VELOCITY
 
-	player_velocity = tangent_direction * (input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED)
-	player_velocity += gravity_direction * radial_speed
-	_move_player(player_velocity * delta)
+	if is_on_floor:
+		_move_player_grounded(input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED * delta)
+		player_velocity = gravity_direction * radial_speed
+		_move_player(player_velocity * delta)
+	else:
+		player_velocity = tangent_direction * (input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED)
+		player_velocity += gravity_direction * radial_speed
+		_move_player(player_velocity * delta)
 
 	if _is_player_on_floor():
 		var ground_gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
@@ -179,6 +192,57 @@ func _update_player(delta: float) -> bool:
 			player_velocity -= ground_gravity_direction * inward_speed
 
 	return player_world_position != previous_position
+
+
+func _move_player_grounded(surface_distance: float) -> void:
+	if is_zero_approx(surface_distance):
+		return
+
+	var remaining_distance: float = surface_distance
+	var step_sign: float = signf(surface_distance)
+	var guard_steps: int = 0
+	var guard_limit: int = 4096
+
+	while absf(remaining_distance) > 0.0 and guard_steps < guard_limit:
+		var player_center: Vector2 = _get_player_center_world()
+		var up_direction: Vector2 = _get_up_direction(player_center)
+		var gravity_direction: Vector2 = -up_direction
+		var tangent_direction: Vector2 = Vector2(-up_direction.y, up_direction.x) * step_sign
+		var step_distance: float = minf(absf(remaining_distance), 1.0)
+		var next_position: Vector2 = player_world_position + (tangent_direction * step_distance)
+		var resolved_position: Vector2 = _resolve_grounded_step_position(next_position, gravity_direction)
+		if resolved_position == player_world_position:
+			break
+
+		player_world_position = resolved_position
+		_settle_player_to_floor(4)
+		remaining_distance -= step_distance * step_sign
+		guard_steps += 1
+
+
+func _resolve_grounded_step_position(next_position: Vector2, gravity_direction: Vector2) -> Vector2:
+	if not _player_collides_at(next_position):
+		return next_position
+
+	for outward_steps in range(1, WorldConstantsClass.CELL_SIZE.y + 1):
+		var adjusted_position: Vector2 = next_position - (gravity_direction * float(outward_steps))
+		if not _player_collides_at(adjusted_position):
+			return adjusted_position
+
+	return player_world_position
+
+
+func _settle_player_to_floor(max_steps: int) -> void:
+	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
+	for step_index in range(max_steps):
+		if _is_player_on_floor():
+			return
+
+		var next_position: Vector2 = player_world_position + gravity_direction
+		if _player_collides_at(next_position):
+			return
+
+		player_world_position = next_position
 
 
 func _update_mining(delta: float) -> bool:
@@ -224,13 +288,13 @@ func _update_mining(delta: float) -> bool:
 			)
 
 		var progress_per_second: float = (debug_settings.mining_power / resistance) * order_factor
-		var progress: float = mining_progress_data.add_progress(cell_position, progress_per_second * delta)
+		var progress: float = world_data.add_damage_progress(cell_position, progress_per_second * delta)
 		changed = true
 
 		if progress >= 1.0:
 			var accepted_amount: int = inventory_data.add_material(cell_type, 1)
 			world_data.remove_cell(cell_position)
-			mining_progress_data.remove_progress(cell_position)
+			world_data.remove_damage_progress(cell_position)
 
 			if accepted_amount <= 0:
 				material_drop_data.add_drop(
@@ -247,7 +311,7 @@ func _update_mining(delta: float) -> bool:
 
 func _update_hover_state() -> bool:
 	var next_hovered_cell: Vector2i = WorldUtilsClass.world_to_cell(get_global_mouse_position())
-	var next_mining_center_cell: Vector2i = next_hovered_cell
+	var next_mining_center_cell: Vector2i = WorldUtilsClass.world_to_cell(_get_target_world_position())
 	var next_hovered_drop_index: int = material_drop_data.find_nearest_drop_index(next_hovered_cell, 0)
 
 	if next_hovered_cell == hovered_cell and next_mining_center_cell == mining_center_cell and next_hovered_drop_index == hovered_drop_index:
@@ -259,30 +323,22 @@ func _update_hover_state() -> bool:
 	return true
 
 
-func _update_camera_position() -> void:
-	camera_2d.position = _get_player_center_world()
-
-
-func _draw_terrain_cells() -> void:
-	for cell_position in world_data.get_used_cells():
-		var cell_type: int = world_data.get_cell(cell_position)
-		if cell_type == WorldConstantsClass.CellType.AIR:
-			continue
-
-		var cell_rect: Rect2 = Rect2(
-			WorldUtilsClass.cell_to_world(cell_position),
-			Vector2(WorldConstantsClass.CELL_SIZE)
-		)
-		draw_rect(cell_rect, _get_cell_color(cell_type, cell_position), true)
+func _apply_camera_tracking(delta: float) -> void:
+	var player_center: Vector2 = _get_player_center_world()
+	var desired_rotation: float = _get_player_surface_rotation()
+	camera_2d.position = player_center
+	camera_2d.rotation = desired_rotation
 
 
 func _draw_player() -> void:
-	var player_rect: Rect2 = Rect2(
-		player_world_position,
-		_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
-	)
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	var player_center: Vector2 = _get_player_center_world()
+	var player_rotation: float = _get_player_surface_rotation()
+	var player_rect: Rect2 = Rect2(-player_size * 0.5, player_size)
+	draw_set_transform(player_center, player_rotation, Vector2.ONE)
 	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_COLOR, true)
 	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_OUTLINE_COLOR, false, 2.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_material_drops() -> void:
@@ -365,10 +421,9 @@ func _draw_carried_material_pile() -> void:
 		weight_ratio = clampf(inventory_data.get_total_weight() / inventory_data.max_weight_capacity, 0.0, 1.0)
 	var capacity_ratio: float = maxf(count_ratio, weight_ratio)
 	var dominant_color: Color = _get_dominant_inventory_color()
-	var pile_center: Vector2 = player_world_position + Vector2(
-		_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS).x * 0.5,
-		GameplayTuningClass.PLAYER_CARRIED_PILE_OFFSET_Y
-	)
+	var player_center: Vector2 = _get_player_center_world()
+	var player_rotation: float = _get_player_surface_rotation()
+	var local_pile_center: Vector2 = Vector2(0.0, GameplayTuningClass.PLAYER_CARRIED_PILE_OFFSET_Y)
 	var pile_width: float = lerpf(
 		GameplayTuningClass.PLAYER_CARRIED_PILE_MIN_WIDTH,
 		GameplayTuningClass.PLAYER_CARRIED_PILE_MAX_WIDTH,
@@ -380,9 +435,11 @@ func _draw_carried_material_pile() -> void:
 		capacity_ratio
 	)
 
-	draw_circle(pile_center + Vector2(-pile_width * 0.18, 0), pile_width * 0.32, Color(dominant_color.r * 0.9, dominant_color.g * 0.9, dominant_color.b * 0.9, 0.9))
-	draw_circle(pile_center + Vector2(pile_width * 0.2, -pile_height * 0.2), pile_width * 0.28, Color(dominant_color.r, dominant_color.g, dominant_color.b, 0.95))
-	draw_circle(pile_center + Vector2(0, -pile_height * 0.42), pile_width * 0.22, Color(minf(dominant_color.r * 1.08, 1.0), minf(dominant_color.g * 1.08, 1.0), minf(dominant_color.b * 1.08, 1.0), 0.95))
+	draw_set_transform(player_center, player_rotation, Vector2.ONE)
+	draw_circle(local_pile_center + Vector2(-pile_width * 0.18, 0.0), pile_width * 0.32, Color(dominant_color.r * 0.9, dominant_color.g * 0.9, dominant_color.b * 0.9, 0.9))
+	draw_circle(local_pile_center + Vector2(pile_width * 0.2, -pile_height * 0.2), pile_width * 0.28, Color(dominant_color.r, dominant_color.g, dominant_color.b, 0.95))
+	draw_circle(local_pile_center + Vector2(0.0, -pile_height * 0.42), pile_width * 0.22, Color(minf(dominant_color.r * 1.08, 1.0), minf(dominant_color.g * 1.08, 1.0), minf(dominant_color.b * 1.08, 1.0), 0.95))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_mining_range() -> void:
@@ -483,8 +540,8 @@ func _draw_labels() -> void:
 	var player_label_position: Vector2 = player_world_position + Vector2(2, -4)
 	var target_label_position: Vector2 = WorldUtilsClass.cell_to_world(mining_center_cell) + Vector2(2, WorldConstantsClass.CELL_SIZE.y + 12)
 	var target_cell_type: int = world_data.get_cell(mining_center_cell)
-	var target_progress: float = mining_progress_data.get_progress(mining_center_cell)
-	var target_stage: int = mining_progress_data.get_damage_stage(mining_center_cell) * 25
+	var target_progress: float = world_data.get_damage_progress(mining_center_cell)
+	var target_stage: int = world_data.get_damage_stage(mining_center_cell) * 25
 	var target_text: String = "target (%d,%d) %s shape %s radius %d" % [
 		mining_center_cell.x,
 		mining_center_cell.y,
@@ -517,6 +574,15 @@ func _draw_labels() -> void:
 	draw_string(font, target_label_position, target_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
 	draw_string(font, target_label_position + Vector2(0, 14), mining_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
 	draw_string(font, target_label_position + Vector2(0, 28), inventory_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
+	var profiling_text: String = "chunks vis %d draw %d cells %d dirty %d rebuild %d frame %.2fms" % [
+		int(last_render_stats.get("visible_chunk_count", 0)),
+		int(last_render_stats.get("rendered_chunk_count", 0)),
+		int(last_render_stats.get("visible_cell_count", 0)),
+		int(last_render_stats.get("dirty_chunk_count", 0)),
+		int(last_render_stats.get("chunk_rebuild_count", 0)),
+		float(last_render_stats.get("estimated_frame_time_ms", 0.0))
+	]
+	draw_string(font, target_label_position + Vector2(0, 42), profiling_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.75, 0.9, 0.72, 1.0))
 
 	if has_inspected_cell:
 		var inspected_type: int = world_data.get_cell(inspected_cell)
@@ -527,7 +593,7 @@ func _draw_labels() -> void:
 			inspected_cell.y,
 			_get_cell_type_name(inspected_type),
 			inspected_resistance,
-			int(round(mining_progress_data.get_progress(inspected_cell) * 100.0)),
+			int(round(world_data.get_damage_progress(inspected_cell) * 100.0)),
 			_get_traversal_index(inspected_cell),
 			inspected_tags
 		]
@@ -589,7 +655,7 @@ func _snap_player_to_ground() -> void:
 
 func _generate_test_terrain() -> void:
 	world_data.clear()
-	mining_progress_data.clear()
+	world_renderer.clear_cache()
 	material_drop_data.clear()
 	inventory_data.clear()
 	_refresh_godmode_ui()
@@ -623,16 +689,33 @@ func _get_view_origin_world() -> Vector2:
 	)
 
 
+func _get_target_world_position() -> Vector2:
+	var player_center: Vector2 = _get_player_center_world()
+	var max_range_pixels: float = GameplayTuningClass.MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
+	var pointer_offset: Vector2 = get_global_mouse_position() - player_center
+	var clamped_offset: Vector2 = pointer_offset.limit_length(max_range_pixels)
+	return player_center + clamped_offset
+
+
 func _get_planet_center_world() -> Vector2:
 	return _get_cell_center_world(GameplayTuningClass.PLANET_CENTER_CELL)
 
 
-func _get_gravity_direction(world_position: Vector2) -> Vector2:
-	var gravity_vector: Vector2 = _get_planet_center_world() - world_position
-	if gravity_vector == Vector2.ZERO:
-		return Vector2.DOWN
+func _get_up_direction(world_position: Vector2) -> Vector2:
+	var up_vector: Vector2 = world_position - planet_center
+	if up_vector == Vector2.ZERO:
+		return Vector2.UP
 
-	return gravity_vector.normalized()
+	return up_vector.normalized()
+
+
+func _get_gravity_direction(world_position: Vector2) -> Vector2:
+	return -_get_up_direction(world_position)
+
+
+func _get_player_surface_rotation() -> float:
+	var gravity_direction: Vector2 = _get_gravity_direction(_get_player_center_world())
+	return gravity_direction.angle() - (PI * 0.5)
 
 
 func _get_planet_surface_spawn_position() -> Vector2:
@@ -733,20 +816,6 @@ func _get_world_size_from_cells(size_cells: Vector2i) -> Vector2:
 		size_cells.x * WorldConstantsClass.CELL_SIZE.x,
 		size_cells.y * WorldConstantsClass.CELL_SIZE.y
 	)
-
-
-func _get_cell_color(cell_type: int, cell_position: Vector2i) -> Color:
-	var base_color: Color = WorldMaterialsClass.get_debug_color(cell_type)
-	var damage_stage: int = mining_progress_data.get_damage_stage(cell_position)
-	var brightness: float = _get_damage_stage_brightness(damage_stage)
-	return Color(
-		base_color.r * brightness,
-		base_color.g * brightness,
-		base_color.b * brightness,
-		base_color.a
-	)
-
-
 func _get_cell_type_name(cell_type: int) -> String:
 	return WorldMaterialsClass.get_display_name(cell_type)
 
@@ -756,18 +825,6 @@ func _get_shape_name(shape_type: int) -> String:
 		return "circle"
 
 	return "square"
-
-
-func _get_damage_stage_brightness(damage_stage: int) -> float:
-	match damage_stage:
-		1:
-			return GameplayTuningClass.DAMAGE_STAGE_25_BRIGHTNESS
-		2:
-			return GameplayTuningClass.DAMAGE_STAGE_50_BRIGHTNESS
-		3:
-			return GameplayTuningClass.DAMAGE_STAGE_75_BRIGHTNESS
-		_:
-			return 1.0
 
 
 func _try_place_preview_cells() -> bool:
@@ -790,7 +847,7 @@ func _try_place_preview_cells() -> bool:
 			break
 
 		world_data.set_cell(cell_position, selected_material_id)
-		mining_progress_data.remove_progress(cell_position)
+		world_data.remove_damage_progress(cell_position)
 		placed_any = true
 
 	if placed_any:

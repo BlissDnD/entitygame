@@ -88,7 +88,7 @@ const PLANET_CENTER_CELL: Vector2i = Vector2i(0, 180)
 # Outer radius of the prototype planet in logical cells.
 # Larger values make the visible horizon feel flatter.
 # Used by: `world_scene.gd`.
-const PLANET_RADIUS_CELLS: int = 160
+const PLANET_RADIUS_CELLS: int = 1600
 
 # Thickness of the dirt shell on the planet surface in logical cells.
 # Used by: `world_scene.gd`.
@@ -123,6 +123,11 @@ const CAMERA_VIEW_CELLS_X: int = 72
 # Number of logical cells visible vertically in the prototype camera framing.
 # Used by: `world_scene.gd`.
 const CAMERA_VIEW_CELLS_Y: int = 42
+
+# Camera rotation follow speed for planetary horizon alignment.
+# Higher values feel snappier, lower values feel smoother.
+# Used by: `world_scene.gd`.
+const CAMERA_ROTATION_SMOOTH_SPEED: float = 10.0
 
 # Draw color for the prototype player fill.
 # Used by: `world_scene.gd`.
