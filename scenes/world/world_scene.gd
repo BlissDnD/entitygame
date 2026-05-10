@@ -7,17 +7,26 @@ const WorldDataClass = preload("res://systems/world/world_data.gd")
 const WorldMaterialsClass = preload("res://systems/world/world_materials.gd")
 const WorldShapesClass = preload("res://systems/world/world_shapes.gd")
 const MiningToolProfilesClass = preload("res://systems/world/mining_tool_profiles.gd")
-const MaterialDropDataClass = preload("res://systems/world/material_drop_data.gd")
+const ItemDropDataClass = preload("res://systems/items/item_drop_data.gd")
 const WorldRendererClass = preload("res://systems/world/world_renderer.gd")
 const RuntimeDebugSettingsClass = preload("res://systems/world/runtime_debug_settings.gd")
 const InventoryDataClass = preload("res://systems/inventory/inventory_data.gd")
 
+const ROOM_EDGE_NONE: String = ""
+const ROOM_EDGE_LEFT: String = "left"
+const ROOM_EDGE_RIGHT: String = "right"
+const ROOM_EDGE_TOP: String = "top"
+const ROOM_EDGE_BOTTOM: String = "bottom"
+const SURFACE_PROP_TREE: String = "tree"
+const SURFACE_PROP_BUSH: String = "bush"
+const SURFACE_PROP_ROCK: String = "rock"
+
 var active_tool_profile: Dictionary = MiningToolProfilesClass.get_profile("starter_pickaxe")
-var debug_settings: RuntimeDebugSettings = RuntimeDebugSettingsClass.new()
+var debug_settings = RuntimeDebugSettingsClass.new()
 var world_data = WorldDataClass.new()
 var world_renderer = WorldRendererClass.new(world_data)
-var material_drop_data = MaterialDropDataClass.new()
-var inventory_data: InventoryData = InventoryDataClass.new(
+var item_drop_data = ItemDropDataClass.new()
+var inventory_data = InventoryDataClass.new(
 	GameplayTuningClass.INVENTORY_CAPACITY,
 	GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY
 )
@@ -32,6 +41,16 @@ var selected_material_id: int = GameplayTuningClass.DEFAULT_SELECTED_MATERIAL
 var block_mining_until_left_released: bool = false
 var hovered_drop_index: int = -1
 var last_render_stats: Dictionary = {}
+var room_world_data_list: Array = []
+var room_drop_data_list: Array = []
+var room_size_cells_list: Array[Vector2i] = []
+var room_surface_props_list: Array = []
+var room_protected_cells_list: Array = []
+var current_room_index: int = 0
+var room_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var has_won: bool = false
+var run_hold_time: float = 0.0
+var last_run_direction: int = 0
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var console_layer: CanvasLayer = $console_layer
@@ -52,9 +71,13 @@ var last_render_stats: Dictionary = {}
 
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
-	_generate_test_terrain()
+	room_rng.randomize()
+	_apply_view_resolution()
+	_generate_rooms()
 	camera_2d.ignore_rotation = true
-	player_world_position = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
+	camera_2d.zoom = Vector2.ONE
+	_set_current_room(0)
+	player_world_position = _get_room_spawn_position()
 	_set_console_visible(false)
 	_update_godmode_visibility()
 	_update_hover_state()
@@ -67,12 +90,17 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var should_redraw: bool = false
 
-	if not _is_console_open():
+	if not _is_console_open() and not has_won:
 		should_redraw = _update_player(delta)
+		if _update_item_drops(delta):
+			should_redraw = true
 		if _update_mining(delta):
 			should_redraw = true
 
 	if _update_hover_state():
+		should_redraw = true
+
+	if _try_transition_room():
 		should_redraw = true
 
 	_apply_camera_tracking(delta)
@@ -131,16 +159,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _draw() -> void:
-	var cell_size: Vector2i = WorldConstantsClass.CELL_SIZE
 	var view_origin: Vector2 = _get_view_origin_world()
-	var view_size: Vector2 = Vector2(
-		GameplayTuningClass.CAMERA_VIEW_CELLS_X * cell_size.x,
-		GameplayTuningClass.CAMERA_VIEW_CELLS_Y * cell_size.y
-	)
+	var view_size: Vector2 = _get_viewport_world_size()
 
 	draw_rect(Rect2(view_origin, view_size), Color(0.07, 0.08, 0.1, 1.0), true)
 	last_render_stats = world_renderer.draw_visible_chunks(self, view_origin, view_size)
-	_draw_material_drops()
+	_draw_room_bounds()
+	_draw_surface_props()
+	_draw_item_drops()
 	if debug_enabled:
 		_draw_mining_range()
 		if not _has_hovered_drop():
@@ -158,12 +184,20 @@ func _draw() -> void:
 	if _has_hovered_drop():
 		_draw_drop_tooltip()
 
+	_draw_room_transition_arrow()
+	_draw_room_tooltip()
+
+	if has_won:
+		draw_rect(Rect2(view_origin, view_size), Color(0.18, 0.9, 0.24, 0.78), true)
+
 
 func _update_player(delta: float) -> bool:
 	var previous_position: Vector2 = player_world_position
 	var input_axis: float = Input.get_axis("move_left", "move_right")
-	var horizontal_speed: float = input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED
 	var is_on_floor: bool = _is_player_on_floor()
+	var move_direction: int = int(signf(input_axis))
+	var speed_multiplier: float = _update_run_speed_multiplier(delta, move_direction, is_on_floor)
+	var horizontal_speed: float = input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED * speed_multiplier
 
 	player_velocity.y += GameplayTuningClass.PLAYER_GRAVITY * delta
 
@@ -172,7 +206,10 @@ func _update_player(delta: float) -> bool:
 
 	if is_on_floor:
 		player_velocity.x = 0.0
-		_move_player_grounded(horizontal_speed * delta)
+		var max_step_up_cells: int = GameplayTuningClass.PLAYER_STEP_UP_BASE_CELLS
+		if speed_multiplier >= GameplayTuningClass.PLAYER_FAST_STEP_THRESHOLD:
+			max_step_up_cells = GameplayTuningClass.PLAYER_STEP_UP_FAST_CELLS
+		_move_player_grounded(horizontal_speed * delta, max_step_up_cells * WorldConstantsClass.CELL_SIZE.y)
 		if player_velocity.y > 0.0:
 			player_velocity.y = 0.0
 	else:
@@ -189,7 +226,7 @@ func _update_player(delta: float) -> bool:
 	return player_world_position != previous_position
 
 
-func _move_player_grounded(surface_distance: float) -> void:
+func _move_player_grounded(surface_distance: float, max_step_up_pixels: int) -> void:
 	if is_zero_approx(surface_distance):
 		return
 
@@ -200,8 +237,8 @@ func _move_player_grounded(surface_distance: float) -> void:
 
 	while absf(remaining_distance) > 0.0 and guard_steps < guard_limit:
 		var step_distance: float = minf(absf(remaining_distance), 1.0)
-		var next_position: Vector2 = player_world_position + Vector2(step_sign * step_distance, 0.0)
-		var resolved_position: Vector2 = _resolve_grounded_step_position(next_position)
+		var next_position: Vector2 = _clamp_player_to_room(player_world_position + Vector2(step_sign * step_distance, 0.0))
+		var resolved_position: Vector2 = _resolve_grounded_step_position(next_position, max_step_up_pixels)
 		if resolved_position == player_world_position:
 			break
 
@@ -211,11 +248,11 @@ func _move_player_grounded(surface_distance: float) -> void:
 		guard_steps += 1
 
 
-func _resolve_grounded_step_position(next_position: Vector2) -> Vector2:
+func _resolve_grounded_step_position(next_position: Vector2, max_step_up_pixels: int) -> Vector2:
 	if not _player_collides_at(next_position):
 		return next_position
 
-	for outward_steps in range(1, WorldConstantsClass.CELL_SIZE.y + 1):
+	for outward_steps in range(1, maxi(max_step_up_pixels, 1) + 1):
 		var adjusted_position: Vector2 = next_position + Vector2(0.0, -float(outward_steps))
 		if not _player_collides_at(adjusted_position):
 			return adjusted_position
@@ -258,6 +295,8 @@ func _update_mining(delta: float) -> bool:
 		var cell_type: int = world_data.get_cell(cell_position)
 		if cell_type == WorldConstantsClass.CellType.AIR:
 			continue
+		if _is_cell_mining_protected(cell_position):
+			continue
 
 		var material_tags: PackedStringArray = WorldMaterialsClass.get_material_tags(cell_type)
 		if not material_tags.has("mineable"):
@@ -287,11 +326,12 @@ func _update_mining(delta: float) -> bool:
 			world_data.remove_damage_progress(cell_position)
 
 			if accepted_amount <= 0:
-				material_drop_data.add_drop(
-					cell_position,
+				item_drop_data.add_item_stack(
+					_get_cell_center_world(cell_position),
+					"material",
 					cell_type,
 					1,
-					GameplayTuningClass.DROPPED_MATERIAL_MERGE_RADIUS_CELLS
+					GameplayTuningClass.DROPPED_ITEM_MERGE_RADIUS_PIXELS
 				)
 
 			_refresh_godmode_ui()
@@ -299,10 +339,45 @@ func _update_mining(delta: float) -> bool:
 	return changed
 
 
+func _update_run_speed_multiplier(delta: float, move_direction: int, is_on_floor: bool) -> float:
+	if not is_on_floor or move_direction == 0:
+		run_hold_time = 0.0
+		last_run_direction = move_direction
+		return 1.0
+
+	if move_direction != last_run_direction:
+		run_hold_time = 0.0
+
+	run_hold_time = minf(run_hold_time + delta, GameplayTuningClass.PLAYER_RUN_BOOST_TIME)
+	last_run_direction = move_direction
+
+	var boost_t: float = 1.0
+	if GameplayTuningClass.PLAYER_RUN_BOOST_TIME > 0.0:
+		boost_t = clampf(run_hold_time / GameplayTuningClass.PLAYER_RUN_BOOST_TIME, 0.0, 1.0)
+
+	return lerpf(1.0, GameplayTuningClass.PLAYER_RUN_BOOST_MULTIPLIER, boost_t)
+
+
+func _update_item_drops(delta: float) -> bool:
+	var previous_drop_count: int = item_drop_data.get_drops().size()
+	item_drop_data.update_physics(
+		world_data,
+		delta,
+		_get_room_world_rect(),
+		GameplayTuningClass.DROPPED_ITEM_GRAVITY,
+		GameplayTuningClass.DROPPED_ITEM_PULL_RADIUS_PIXELS,
+		GameplayTuningClass.DROPPED_ITEM_MERGE_RADIUS_PIXELS
+	)
+	return previous_drop_count != item_drop_data.get_drops().size() or previous_drop_count > 0
+
+
 func _update_hover_state() -> bool:
 	var next_hovered_cell: Vector2i = WorldUtilsClass.world_to_cell(get_global_mouse_position())
 	var next_mining_center_cell: Vector2i = WorldUtilsClass.world_to_cell(_get_target_world_position())
-	var next_hovered_drop_index: int = material_drop_data.find_nearest_drop_index(next_hovered_cell, 0)
+	var next_hovered_drop_index: int = item_drop_data.find_nearest_drop_index(
+		get_global_mouse_position(),
+		GameplayTuningClass.DROPPED_ITEM_HOVER_RADIUS_PIXELS
+	)
 
 	if next_hovered_cell == hovered_cell and next_mining_center_cell == mining_center_cell and next_hovered_drop_index == hovered_drop_index:
 		return false
@@ -314,8 +389,9 @@ func _update_hover_state() -> bool:
 
 
 func _apply_camera_tracking(_delta: float) -> void:
-	var player_center: Vector2 = _get_player_center_world()
-	camera_2d.position = player_center
+	_apply_view_resolution()
+	camera_2d.zoom = Vector2.ONE
+	camera_2d.position = _get_camera_center_world()
 	camera_2d.rotation = 0.0
 
 
@@ -327,25 +403,175 @@ func _draw_player() -> void:
 	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_OUTLINE_COLOR, false, 2.0)
 
 
-func _draw_material_drops() -> void:
-	for drop_index in range(material_drop_data.get_drops().size()):
-		var drop_entry: Dictionary = material_drop_data.get_drop_at_index(drop_index)
-		var drop_cell: Vector2i = Vector2i(drop_entry.get("cell_position", Vector2i.ZERO))
-		var material_id: int = int(drop_entry.get("material_id", WorldConstantsClass.CellType.AIR))
+func _draw_room_bounds() -> void:
+	draw_rect(_get_room_world_rect(), GameplayTuningClass.ROOM_EDGE_COLOR, false, 2.0)
+
+
+func _draw_room_transition_arrow() -> void:
+	var room_edge: String = _get_room_transition_edge()
+	if room_edge == ROOM_EDGE_NONE:
+		return
+
+	var player_center: Vector2 = _get_player_center_world()
+	var room_rect: Rect2 = _get_room_world_rect()
+	var arrow_size: Vector2 = Vector2(18.0, 14.0)
+	var arrow_points: PackedVector2Array = PackedVector2Array()
+
+	match room_edge:
+		ROOM_EDGE_LEFT:
+			var left_center: Vector2 = Vector2(room_rect.position.x + 16.0, player_center.y)
+			arrow_points = PackedVector2Array([
+				left_center + Vector2(-arrow_size.x * 0.5, 0.0),
+				left_center + Vector2(arrow_size.x * 0.5, -arrow_size.y * 0.5),
+				left_center + Vector2(arrow_size.x * 0.5, arrow_size.y * 0.5),
+			])
+		ROOM_EDGE_RIGHT:
+			var right_center: Vector2 = Vector2(room_rect.end.x - 16.0, player_center.y)
+			arrow_points = PackedVector2Array([
+				right_center + Vector2(arrow_size.x * 0.5, 0.0),
+				right_center + Vector2(-arrow_size.x * 0.5, -arrow_size.y * 0.5),
+				right_center + Vector2(-arrow_size.x * 0.5, arrow_size.y * 0.5),
+			])
+		ROOM_EDGE_TOP:
+			var top_center: Vector2 = Vector2(player_center.x, room_rect.position.y + 16.0)
+			arrow_points = PackedVector2Array([
+				top_center + Vector2(0.0, -arrow_size.x * 0.5),
+				top_center + Vector2(-arrow_size.y * 0.5, arrow_size.x * 0.5),
+				top_center + Vector2(arrow_size.y * 0.5, arrow_size.x * 0.5),
+			])
+		ROOM_EDGE_BOTTOM:
+			var bottom_center: Vector2 = Vector2(player_center.x, room_rect.end.y - 16.0)
+			arrow_points = PackedVector2Array([
+				bottom_center + Vector2(0.0, arrow_size.x * 0.5),
+				bottom_center + Vector2(-arrow_size.y * 0.5, -arrow_size.x * 0.5),
+				bottom_center + Vector2(arrow_size.y * 0.5, -arrow_size.x * 0.5),
+			])
+
+	if not arrow_points.is_empty():
+		draw_colored_polygon(arrow_points, GameplayTuningClass.ROOM_TRANSITION_ARROW_COLOR)
+
+
+func _draw_room_tooltip() -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+
+	var font_size: int = ThemeDB.fallback_font_size
+	var tooltip_text: String = "Room %d / %d" % [
+		current_room_index + 1,
+		maxi(room_world_data_list.size(), 1)
+	]
+	var text_size: Vector2 = font.get_string_size(tooltip_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
+	var view_origin: Vector2 = _get_view_origin_world()
+	var view_size: Vector2 = _get_viewport_world_size()
+	var padding: Vector2 = Vector2(8.0, 5.0)
+	var tooltip_rect: Rect2 = Rect2(
+		Vector2(
+			view_origin.x + (view_size.x - text_size.x - (padding.x * 2.0)) * 0.5,
+			view_origin.y + 10.0
+		),
+		text_size + (padding * 2.0)
+	)
+
+	draw_rect(tooltip_rect, Color(0.08, 0.09, 0.12, 0.9), true)
+	draw_rect(tooltip_rect, GameplayTuningClass.ROOM_EDGE_COLOR, false, 1.0)
+	draw_string(
+		font,
+		tooltip_rect.position + Vector2(padding.x, padding.y + font_size),
+		tooltip_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		Color(1.0, 1.0, 1.0, 1.0)
+	)
+
+
+func _draw_surface_props() -> void:
+	for prop_entry in _get_current_room_surface_props():
+		var prop_type: String = String(prop_entry.get("type", ""))
+		var base_cell: Vector2i = Vector2i(prop_entry.get("base_cell", Vector2i.ZERO))
+		var base_world: Vector2 = WorldUtilsClass.cell_to_world(base_cell)
+
+		match prop_type:
+			SURFACE_PROP_TREE:
+				var trunk_width_cells: int = int(prop_entry.get("trunk_width_cells", 1))
+				var trunk_height_cells: int = int(prop_entry.get("trunk_height_cells", 3))
+				var canopy_width_cells: int = int(prop_entry.get("canopy_width_cells", 3))
+				var canopy_height_cells: int = int(prop_entry.get("canopy_height_cells", 2))
+				var trunk_size: Vector2 = _get_world_size_from_cells(Vector2i(trunk_width_cells, trunk_height_cells))
+				var trunk_x: float = base_world.x + ((float(WorldConstantsClass.CELL_SIZE.x) * float(maxi(int(prop_entry.get("footprint_width_cells", trunk_width_cells)), 1))) - trunk_size.x) * 0.5
+				var trunk_rect: Rect2 = Rect2(
+					Vector2(trunk_x, base_world.y - trunk_size.y),
+					trunk_size
+				)
+				draw_rect(trunk_rect, GameplayTuningClass.TREE_TRUNK_COLOR, true)
+				var canopy_size: Vector2 = _get_world_size_from_cells(Vector2i(canopy_width_cells, canopy_height_cells))
+				var canopy_center: Vector2 = trunk_rect.position + Vector2(trunk_rect.size.x * 0.5, 0.0)
+				var canopy_rect: Rect2 = Rect2(
+					canopy_center + Vector2(-canopy_size.x * 0.5, -canopy_size.y * 0.92),
+					canopy_size
+				)
+				draw_circle(canopy_rect.get_center(), canopy_size.x * 0.32, GameplayTuningClass.TREE_LEAF_COLOR)
+				draw_circle(canopy_rect.get_center() + Vector2(-canopy_size.x * 0.18, canopy_size.y * 0.05), canopy_size.x * 0.24, GameplayTuningClass.TREE_LEAF_COLOR)
+				draw_circle(canopy_rect.get_center() + Vector2(canopy_size.x * 0.18, canopy_size.y * 0.02), canopy_size.x * 0.24, GameplayTuningClass.TREE_LEAF_COLOR)
+			SURFACE_PROP_BUSH:
+				var bush_width_cells: int = int(prop_entry.get("width_cells", 3))
+				var bush_height_cells: int = int(prop_entry.get("height_cells", 1))
+				var bush_size: Vector2 = _get_world_size_from_cells(Vector2i(bush_width_cells, bush_height_cells))
+				var bush_center: Vector2 = base_world + Vector2(bush_size.x * 0.5, 0.0)
+				draw_circle(bush_center + Vector2(-bush_size.x * 0.2, -bush_size.y * 0.35), bush_size.x * 0.22, GameplayTuningClass.BUSH_COLOR)
+				draw_circle(bush_center + Vector2(0.0, -bush_size.y * 0.5), bush_size.x * 0.26, GameplayTuningClass.BUSH_COLOR)
+				draw_circle(bush_center + Vector2(bush_size.x * 0.22, -bush_size.y * 0.34), bush_size.x * 0.2, GameplayTuningClass.BUSH_COLOR)
+			SURFACE_PROP_ROCK:
+				var rock_width_cells: int = int(prop_entry.get("width_cells", 2))
+				var rock_height_cells: int = int(prop_entry.get("height_cells", 1))
+				var rock_size: Vector2 = _get_world_size_from_cells(Vector2i(rock_width_cells, rock_height_cells))
+				var rock_rect: Rect2 = Rect2(
+					Vector2(base_world.x, base_world.y - rock_size.y),
+					rock_size
+				)
+				var rock_points: PackedVector2Array = PackedVector2Array([
+					rock_rect.position + Vector2(rock_rect.size.x * 0.08, rock_rect.size.y),
+					rock_rect.position + Vector2(rock_rect.size.x * 0.22, rock_rect.size.y * 0.22),
+					rock_rect.position + Vector2(rock_rect.size.x * 0.56, 0.0),
+					rock_rect.position + Vector2(rock_rect.size.x * 0.9, rock_rect.size.y * 0.18),
+					rock_rect.position + Vector2(rock_rect.size.x, rock_rect.size.y * 0.76),
+					rock_rect.position + Vector2(rock_rect.size.x * 0.72, rock_rect.size.y),
+				])
+				draw_colored_polygon(rock_points, GameplayTuningClass.ROCK_COLOR)
+
+
+func _draw_item_drops() -> void:
+	for drop_index in range(item_drop_data.get_drops().size()):
+		var drop_entry: Dictionary = item_drop_data.get_drop_at_index(drop_index)
+		var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 		var amount: int = int(drop_entry.get("amount", 0))
 		if amount <= 0:
 			continue
 
-		var base_color: Color = WorldMaterialsClass.get_debug_color(material_id)
-		var drop_center: Vector2 = _get_cell_center_world(drop_cell) + Vector2(0.0, WorldConstantsClass.CELL_SIZE.y * 0.12)
+		var base_color: Color = _get_drop_item_color(drop_entry)
+		var drop_center: Vector2 = Vector2(drop_entry.get("world_position", Vector2.ZERO))
 		var stack_layers: int = mini(amount, 3)
 		var is_hovered_drop: bool = drop_index == hovered_drop_index
+		var amount_ratio: float = clampf(
+			float(amount) / float(maxi(GameplayTuningClass.DROPPED_ITEM_PILE_MAX_VISUAL_COUNT, 1)),
+			0.0,
+			1.0
+		)
+		var pile_scale: float = lerpf(
+			GameplayTuningClass.DROPPED_ITEM_PILE_MIN_SCALE,
+			GameplayTuningClass.DROPPED_ITEM_PILE_MAX_SCALE,
+			amount_ratio
+		)
 
 		for layer_index in range(stack_layers):
-			var radius_scale: float = 1.0 - (float(layer_index) * 0.12)
+			var radius_scale: float = (1.0 - (float(layer_index) * 0.12)) * pile_scale
 			if is_hovered_drop:
 				radius_scale += 0.12
-			var layer_center: Vector2 = drop_center + Vector2(0.0, -GameplayTuningClass.DROPPED_MATERIAL_STACK_OFFSET * float(layer_index))
+			var layer_center: Vector2 = drop_center + Vector2(
+				0.0,
+				-GameplayTuningClass.DROPPED_MATERIAL_STACK_OFFSET * pile_scale * float(layer_index)
+			)
 			var layer_color: Color = Color(
 				minf(base_color.r * (1.0 + float(layer_index) * 0.05 + (0.12 if is_hovered_drop else 0.0)), 1.0),
 				minf(base_color.g * (1.0 + float(layer_index) * 0.05 + (0.12 if is_hovered_drop else 0.0)), 1.0),
@@ -356,7 +582,7 @@ func _draw_material_drops() -> void:
 
 		if is_hovered_drop:
 			var drop_rect: Rect2 = Rect2(
-				WorldUtilsClass.cell_to_world(drop_cell),
+				drop_center - Vector2(WorldConstantsClass.CELL_SIZE.x * 0.5, WorldConstantsClass.CELL_SIZE.y * 0.5),
 				Vector2(WorldConstantsClass.CELL_SIZE)
 			)
 			draw_rect(drop_rect, GameplayTuningClass.DROPPED_MATERIAL_HOVER_OUTLINE_COLOR, false, 1.0)
@@ -366,11 +592,10 @@ func _draw_drop_tooltip() -> void:
 	if not _has_hovered_drop():
 		return
 
-	var drop_entry: Dictionary = material_drop_data.get_drop_at_index(hovered_drop_index)
-	var material_id: int = int(drop_entry.get("material_id", WorldConstantsClass.CellType.AIR))
+	var drop_entry: Dictionary = item_drop_data.get_drop_at_index(hovered_drop_index)
 	var amount: int = int(drop_entry.get("amount", 0))
 	var tooltip_text: String = "%s x%d" % [
-		_get_cell_type_name(material_id),
+		_get_drop_item_name(drop_entry),
 		amount
 	]
 	var font: Font = ThemeDB.fallback_font
@@ -532,6 +757,11 @@ func _draw_labels() -> void:
 		_get_shape_name(debug_settings.mining_shape),
 		debug_settings.mining_radius
 	]
+	var room_text: String = "room %d/%d edge %s" % [
+		current_room_index + 1,
+		maxi(room_world_data_list.size(), 1),
+		_get_room_transition_edge()
+	]
 	var player_text: String = "player (%d,%d) mining_power %.0f" % [
 		player_cell.x,
 		player_cell.y,
@@ -548,12 +778,13 @@ func _draw_labels() -> void:
 		inventory_data.max_capacity,
 		inventory_data.get_total_weight(),
 		inventory_data.max_weight_capacity,
-		material_drop_data.get_total_drop_count(),
+		item_drop_data.get_total_drop_count(),
 		inventory_data.get_material_count(WorldConstantsClass.CellType.DIRT),
 		inventory_data.get_material_count(WorldConstantsClass.CellType.STONE)
 	]
 
-	draw_string(font, player_label_position, player_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1, 1, 1, 1))
+	draw_string(font, player_label_position, room_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1, 1, 1, 1))
+	draw_string(font, player_label_position + Vector2(0, 14), player_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1, 1, 1, 1))
 	draw_string(font, target_label_position, target_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
 	draw_string(font, target_label_position + Vector2(0, 14), mining_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
 	draw_string(font, target_label_position + Vector2(0, 28), inventory_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.85, 0.95, 1.0, 1.0))
@@ -584,25 +815,47 @@ func _draw_labels() -> void:
 
 
 func _move_player(motion: Vector2) -> void:
-	var remaining_motion: Vector2 = motion
-	var remaining_distance: float = remaining_motion.length()
+	_move_player_axis(Vector2(motion.x, 0.0), true)
+	_move_player_axis(Vector2(0.0, motion.y), false)
+
+
+func _move_player_axis(axis_motion: Vector2, allow_step_assist: bool) -> void:
+	if axis_motion == Vector2.ZERO:
+		return
+
+	var remaining_distance: float = axis_motion.length()
+	var direction: Vector2 = axis_motion.normalized()
 
 	while remaining_distance > 0.0:
 		var step_distance: float = minf(remaining_distance, 1.0)
-		var step_motion: Vector2 = remaining_motion.normalized() * step_distance
-		var next_position: Vector2 = player_world_position + step_motion
+		var step_motion: Vector2 = direction * step_distance
+		var next_position: Vector2 = _clamp_player_to_room(player_world_position + step_motion)
 
 		if _player_collides_at(next_position):
+			if allow_step_assist and absf(step_motion.x) > 0.0:
+				var assisted_position: Vector2 = _get_wall_step_assisted_position(next_position)
+				if assisted_position != player_world_position:
+					player_world_position = assisted_position
+					remaining_distance -= step_distance
+					continue
 			return
 
 		player_world_position = next_position
-		remaining_motion -= step_motion
-		remaining_distance = remaining_motion.length()
+		remaining_distance -= step_distance
+
+
+func _get_wall_step_assisted_position(next_position: Vector2) -> Vector2:
+	for step_pixels in range(1, GameplayTuningClass.PLAYER_WALL_STEP_ASSIST_PIXELS + 1):
+		var adjusted_position: Vector2 = _clamp_player_to_room(next_position + Vector2(0.0, -float(step_pixels)))
+		if not _player_collides_at(adjusted_position):
+			return adjusted_position
+
+	return player_world_position
 
 
 func _player_collides_at(test_position: Vector2) -> bool:
 	var player_rect: Rect2 = Rect2(test_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
-	return world_data.intersects_solid_rect(player_rect)
+	return world_data.intersects_solid_rect(player_rect) or _rocks_collide_with_rect(player_rect)
 
 
 func _is_player_on_floor() -> bool:
@@ -623,30 +876,396 @@ func _snap_player_to_ground() -> void:
 		guard_steps += 1
 
 
-func _generate_test_terrain() -> void:
-	world_data.clear()
-	world_renderer.clear_cache()
-	material_drop_data.clear()
+func _generate_rooms() -> void:
+	room_world_data_list.clear()
+	room_drop_data_list.clear()
+	room_size_cells_list.clear()
+	room_surface_props_list.clear()
+	room_protected_cells_list.clear()
 	inventory_data.clear()
+	current_room_index = 0
+	has_won = false
+
+	for _room_index in range(GameplayTuningClass.ROOM_COUNT):
+		var room_size_cells: Vector2i = _generate_room_size_cells()
+		room_size_cells_list.append(room_size_cells)
+		room_world_data_list.append(_create_room_world_data(room_size_cells))
+		room_drop_data_list.append(ItemDropDataClass.new())
+		var room_surface_props: Array = _generate_surface_props_for_room(room_size_cells)
+		room_surface_props_list.append(room_surface_props)
+		room_protected_cells_list.append(_build_protected_cells_for_props(room_surface_props))
+
+
+func _create_room_world_data(room_size_cells: Vector2i):
+	var room_world_data = WorldDataClass.new()
+	var surface_cell_y: int = _get_surface_cell_y_for_room(room_size_cells)
+	var dirt_end_y: int = mini(surface_cell_y + GameplayTuningClass.SURFACE_DEPTH, room_size_cells.y)
+
+	for cell_y in range(surface_cell_y, dirt_end_y):
+		for cell_x in range(0, room_size_cells.x):
+			room_world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.DIRT)
+
+	for cell_y in range(dirt_end_y, room_size_cells.y):
+		for cell_x in range(0, room_size_cells.x):
+			room_world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.STONE)
+
+	return room_world_data
+
+
+func _generate_room_size_cells() -> Vector2i:
+	var viewport_size: Vector2 = _get_viewport_world_size()
+	var min_viewport_width_cells: int = int(ceili(viewport_size.x / float(WorldConstantsClass.CELL_SIZE.x)))
+	var min_viewport_height_cells: int = int(ceili(viewport_size.y / float(WorldConstantsClass.CELL_SIZE.y)))
+	var min_size: Vector2i = GameplayTuningClass.ROOM_MIN_SIZE_CELLS
+	var max_size: Vector2i = GameplayTuningClass.ROOM_MAX_SIZE_CELLS
+	var width_min: int = maxi(min_size.x, min_viewport_width_cells)
+	var width_max: int = maxi(width_min, max_size.x)
+	var fixed_height: int = maxi(min_size.y, min_viewport_height_cells)
+
+	return Vector2i(
+		room_rng.randi_range(width_min, width_max),
+		fixed_height
+	)
+
+
+func _set_current_room(room_index: int) -> void:
+	current_room_index = clampi(room_index, 0, room_world_data_list.size() - 1)
+	world_data = room_world_data_list[current_room_index]
+	item_drop_data = room_drop_data_list[current_room_index]
+	world_renderer.set_world_data(world_data)
 	_refresh_godmode_ui()
-	var start_cell_x: int = -GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS
-	var end_cell_x: int = GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS
 
-	for cell_y in range(GameplayTuningClass.SURFACE_START_DEPTH, GameplayTuningClass.SURFACE_START_DEPTH + GameplayTuningClass.SURFACE_DEPTH):
-		for cell_x in range(start_cell_x, end_cell_x + 1):
-			world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.DIRT)
 
-	for cell_y in range(GameplayTuningClass.STONE_LAYER_START_DEPTH, GameplayTuningClass.STONE_LAYER_END_DEPTH + 1):
-		for cell_x in range(-GameplayTuningClass.STONE_HALF_WIDTH_CELLS, GameplayTuningClass.STONE_HALF_WIDTH_CELLS + 1):
-			world_data.set_cell(Vector2i(cell_x, cell_y), WorldConstantsClass.CellType.STONE)
+func _get_room_spawn_position() -> Vector2:
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	var room_rect: Rect2 = _get_room_world_rect()
+	var spawn_center_x: float = room_rect.position.x + (room_rect.size.x * 0.5)
+	var spawn_top_y: float = WorldUtilsClass.cell_to_world(Vector2i(0, _get_current_room_surface_cell_y())).y - player_size.y
+	return Vector2(spawn_center_x - (player_size.x * 0.5), spawn_top_y)
+
+
+func _try_transition_room() -> bool:
+	var room_edge: String = _get_room_transition_edge()
+	if room_edge == ROOM_EDGE_NONE:
+		return false
+
+	var should_transition: bool = false
+	match room_edge:
+		ROOM_EDGE_LEFT:
+			should_transition = Input.is_action_pressed("move_left")
+		ROOM_EDGE_RIGHT:
+			should_transition = Input.is_action_pressed("move_right")
+		ROOM_EDGE_TOP:
+			should_transition = Input.is_action_pressed("move_up")
+		ROOM_EDGE_BOTTOM:
+			should_transition = Input.is_action_pressed("move_down")
+
+	if not should_transition:
+		return false
+
+	if room_edge == ROOM_EDGE_TOP or room_edge == ROOM_EDGE_BOTTOM:
+		has_won = true
+		player_velocity = Vector2.ZERO
+		queue_redraw()
+		return true
+
+	var next_room_index: int = _get_adjacent_room_index(room_edge)
+	if next_room_index == current_room_index:
+		return false
+
+	_set_current_room(next_room_index)
+	_place_player_at_room_entry(room_edge)
+	hovered_drop_index = -1
+	has_inspected_cell = false
+	_update_hover_state()
+	queue_redraw()
+	return true
+
+
+func _place_player_at_room_entry(exit_edge: String) -> void:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	var entry_inset_pixels: float = GameplayTuningClass.ROOM_ENTRY_INSET_CELLS * WorldConstantsClass.CELL_SIZE.x
+	var next_position: Vector2 = player_world_position
+
+	match exit_edge:
+		ROOM_EDGE_LEFT:
+			next_position.x = room_rect.end.x - player_size.x - entry_inset_pixels
+		ROOM_EDGE_RIGHT:
+			next_position.x = room_rect.position.x + entry_inset_pixels
+		ROOM_EDGE_TOP:
+			next_position.y = room_rect.end.y - player_size.y - entry_inset_pixels
+		ROOM_EDGE_BOTTOM:
+			next_position.y = room_rect.position.y + entry_inset_pixels
+
+	next_position = _clamp_player_to_room(next_position)
+	if exit_edge == ROOM_EDGE_LEFT or exit_edge == ROOM_EDGE_RIGHT:
+		_clear_room_entry_at_position(next_position)
+	player_world_position = next_position
+	player_velocity = Vector2.ZERO
+
+
+func _get_room_transition_edge() -> String:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var player_rect: Rect2 = Rect2(player_world_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
+	var margin_pixels: float = GameplayTuningClass.ROOM_TRANSITION_MARGIN_CELLS * WorldConstantsClass.CELL_SIZE.x
+
+	if player_rect.position.x <= room_rect.position.x + margin_pixels and _has_adjacent_room(ROOM_EDGE_LEFT):
+		return ROOM_EDGE_LEFT
+	if player_rect.end.x >= room_rect.end.x - margin_pixels and _has_adjacent_room(ROOM_EDGE_RIGHT):
+		return ROOM_EDGE_RIGHT
+	if player_rect.position.y <= room_rect.position.y + margin_pixels:
+		return ROOM_EDGE_TOP
+	if player_rect.end.y >= room_rect.end.y - margin_pixels:
+		return ROOM_EDGE_BOTTOM
+
+	return ROOM_EDGE_NONE
+
+
+func _get_room_world_rect() -> Rect2:
+	return Rect2(Vector2.ZERO, _get_world_size_from_cells(_get_current_room_size_cells()))
+
+
+func _is_cell_inside_room(cell_position: Vector2i) -> bool:
+	var room_size_cells: Vector2i = _get_current_room_size_cells()
+	return cell_position.x >= 0 and cell_position.y >= 0 and cell_position.x < room_size_cells.x and cell_position.y < room_size_cells.y
+
+
+func _clamp_player_to_room(next_position: Vector2) -> Vector2:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	return Vector2(
+		clampf(next_position.x, room_rect.position.x, room_rect.end.x - player_size.x),
+		clampf(next_position.y, room_rect.position.y, room_rect.end.y - player_size.y)
+	)
 
 
 func _get_view_origin_world() -> Vector2:
-	var cell_size: Vector2i = WorldConstantsClass.CELL_SIZE
-	return _get_player_center_world() - Vector2(
-		(GameplayTuningClass.CAMERA_VIEW_CELLS_X * cell_size.x) * 0.5,
-		(GameplayTuningClass.CAMERA_VIEW_CELLS_Y * cell_size.y) * 0.5
+	return _get_camera_center_world() - (_get_viewport_world_size() * 0.5)
+
+
+func _get_camera_center_world() -> Vector2:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var half_view_size: Vector2 = _get_viewport_world_size() * 0.5
+	var min_center: Vector2 = room_rect.position + half_view_size
+	var max_center: Vector2 = room_rect.end - half_view_size
+	var player_center: Vector2 = _get_player_center_world()
+
+	return Vector2(
+		clampf(player_center.x, min_center.x, max_center.x),
+		clampf(player_center.y, min_center.y, max_center.y)
 	)
+
+
+func _get_viewport_world_size() -> Vector2:
+	return Vector2(_get_target_internal_resolution())
+
+
+func _get_target_internal_resolution() -> Vector2i:
+	var target_world_width: float = GameplayTuningClass.CAMERA_VIEW_CELLS_X * WorldConstantsClass.CELL_SIZE.x
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var viewport_width: float = maxf(viewport_size.x, 1.0)
+	var viewport_height: float = maxf(viewport_size.y, 1.0)
+	var aspect_ratio: float = viewport_height / viewport_width
+	var target_world_height: float = target_world_width * aspect_ratio
+	return Vector2i(
+		int(round(target_world_width)),
+		int(round(target_world_height))
+	)
+
+
+func _apply_view_resolution() -> void:
+	var root_window: Window = get_tree().root
+	root_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root_window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	root_window.content_scale_size = _get_target_internal_resolution()
+
+
+func _get_current_room_size_cells() -> Vector2i:
+	if current_room_index >= 0 and current_room_index < room_size_cells_list.size():
+		return room_size_cells_list[current_room_index]
+
+	return GameplayTuningClass.ROOM_MIN_SIZE_CELLS
+
+
+func _get_current_room_surface_props() -> Array:
+	if current_room_index >= 0 and current_room_index < room_surface_props_list.size():
+		return room_surface_props_list[current_room_index]
+
+	return []
+
+
+func _get_current_room_protected_cells() -> Dictionary:
+	if current_room_index >= 0 and current_room_index < room_protected_cells_list.size():
+		return room_protected_cells_list[current_room_index]
+
+	return {}
+
+
+func _get_surface_cell_y_for_room(room_size_cells: Vector2i) -> int:
+	return maxi(int(floor(float(room_size_cells.y) * 0.5)), 0)
+
+
+func _get_current_room_surface_cell_y() -> int:
+	return _get_surface_cell_y_for_room(_get_current_room_size_cells())
+
+
+func _is_cell_mining_protected(cell_position: Vector2i) -> bool:
+	return _get_current_room_protected_cells().has(cell_position)
+
+
+func _rocks_collide_with_rect(test_rect: Rect2) -> bool:
+	for prop_entry in _get_current_room_surface_props():
+		if String(prop_entry.get("type", "")) != SURFACE_PROP_ROCK:
+			continue
+
+		if _get_surface_prop_collision_rect(prop_entry).intersects(test_rect):
+			return true
+
+	return false
+
+
+func _get_surface_prop_collision_rect(prop_entry: Dictionary) -> Rect2:
+	var base_cell: Vector2i = Vector2i(prop_entry.get("base_cell", Vector2i.ZERO))
+	var width_cells: int = int(prop_entry.get("width_cells", prop_entry.get("footprint_width_cells", 1)))
+	var height_cells: int = int(prop_entry.get("height_cells", 1))
+	var base_world: Vector2 = WorldUtilsClass.cell_to_world(base_cell)
+	var prop_size: Vector2 = _get_world_size_from_cells(Vector2i(width_cells, height_cells))
+	return Rect2(
+		Vector2(base_world.x, base_world.y - prop_size.y),
+		prop_size
+	)
+
+
+func _clear_room_entry_at_position(entry_position: Vector2) -> void:
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	var room_rect: Rect2 = _get_room_world_rect()
+	var side_padding: float = float(WorldConstantsClass.CELL_SIZE.x)
+	var top_padding: float = float(WorldConstantsClass.CELL_SIZE.y * 2)
+	var player_rect: Rect2 = Rect2(
+		entry_position + Vector2(-side_padding, -top_padding),
+		player_size + Vector2(side_padding * 2.0, top_padding)
+	)
+	var player_center: Vector2 = player_rect.get_center()
+	var distance_left: float = absf(player_center.x - room_rect.position.x)
+	var distance_right: float = absf(room_rect.end.x - player_center.x)
+	var distance_top: float = absf(player_center.y - room_rect.position.y)
+	var distance_bottom: float = absf(room_rect.end.y - player_center.y)
+	var minimum_distance: float = minf(minf(distance_left, distance_right), minf(distance_top, distance_bottom))
+	var clear_rect: Rect2 = player_rect
+
+	if is_equal_approx(distance_left, minimum_distance):
+		clear_rect = clear_rect.merge(Rect2(
+			Vector2(room_rect.position.x, player_rect.position.y),
+			Vector2(player_rect.end.x - room_rect.position.x, player_rect.size.y)
+		))
+
+	if is_equal_approx(distance_right, minimum_distance):
+		clear_rect = clear_rect.merge(Rect2(
+			Vector2(player_rect.position.x, player_rect.position.y),
+			Vector2(room_rect.end.x - player_rect.position.x, player_rect.size.y)
+		))
+
+	if is_equal_approx(distance_top, minimum_distance):
+		clear_rect = clear_rect.merge(Rect2(
+			Vector2(player_rect.position.x, room_rect.position.y),
+			Vector2(player_rect.size.x, player_rect.end.y - room_rect.position.y)
+		))
+
+	if is_equal_approx(distance_bottom, minimum_distance):
+		clear_rect = clear_rect.merge(Rect2(
+			Vector2(player_rect.position.x, player_rect.position.y),
+			Vector2(player_rect.size.x, room_rect.end.y - player_rect.position.y)
+		))
+
+	var start_cell: Vector2i = WorldUtilsClass.world_to_cell(clear_rect.position)
+	var end_cell: Vector2i = WorldUtilsClass.world_to_cell(clear_rect.end - Vector2.ONE)
+
+	for cell_y in range(start_cell.y, end_cell.y + 1):
+		for cell_x in range(start_cell.x, end_cell.x + 1):
+			var cell_position: Vector2i = Vector2i(cell_x, cell_y)
+			if _is_cell_inside_room(cell_position):
+				world_data.remove_cell(cell_position)
+				world_data.remove_damage_progress(cell_position)
+
+
+func _generate_surface_props_for_room(room_size_cells: Vector2i) -> Array:
+	var props: Array = []
+	var surface_cell_y: int = _get_surface_cell_y_for_room(room_size_cells)
+	var cell_x: int = GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS
+	var max_cell_x: int = room_size_cells.x - GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS
+
+	while cell_x < max_cell_x:
+		if room_rng.randf() > GameplayTuningClass.SURFACE_PROP_DENSITY:
+			cell_x += 1
+			continue
+
+		var prop_roll: float = room_rng.randf()
+		var prop_entry: Dictionary = {}
+		if prop_roll < 0.58:
+			var tree_scale: float = GameplayTuningClass.TREE_SIZE_MULTIPLIER
+			var footprint_width_cells: int = maxi(int(round(float(room_rng.randi_range(2, 4)) * tree_scale)), 2)
+			prop_entry = {
+				"type": SURFACE_PROP_TREE,
+				"base_cell": Vector2i(cell_x, surface_cell_y),
+				"footprint_width_cells": footprint_width_cells,
+				"trunk_width_cells": maxi(int(round(float(room_rng.randi_range(1, 2)) * tree_scale)), 1),
+				"trunk_height_cells": maxi(int(round(float(room_rng.randi_range(3, 6)) * tree_scale)), 3),
+				"canopy_width_cells": maxi(int(round(float(room_rng.randi_range(3, 6)) * tree_scale)), 3),
+				"canopy_height_cells": maxi(int(round(float(room_rng.randi_range(2, 4)) * tree_scale)), 2),
+			}
+		elif prop_roll < 0.82:
+			prop_entry = {
+				"type": SURFACE_PROP_BUSH,
+				"base_cell": Vector2i(cell_x, surface_cell_y),
+				"footprint_width_cells": room_rng.randi_range(2, 4),
+				"width_cells": room_rng.randi_range(2, 4),
+				"height_cells": room_rng.randi_range(1, 2),
+			}
+		else:
+			prop_entry = {
+				"type": SURFACE_PROP_ROCK,
+				"base_cell": Vector2i(cell_x, surface_cell_y),
+				"footprint_width_cells": room_rng.randi_range(2, 4),
+				"width_cells": room_rng.randi_range(2, 4),
+				"height_cells": room_rng.randi_range(1, 2),
+			}
+
+		var footprint_width: int = int(prop_entry.get("footprint_width_cells", 1))
+		if cell_x + footprint_width >= max_cell_x:
+			break
+
+		props.append(prop_entry)
+		cell_x += footprint_width + GameplayTuningClass.SURFACE_PROP_SPACING_MIN_CELLS + room_rng.randi_range(0, 2)
+
+	return props
+
+
+func _build_protected_cells_for_props(surface_props: Array) -> Dictionary:
+	var protected_cells: Dictionary = {}
+
+	for prop_entry in surface_props:
+		var base_cell: Vector2i = Vector2i(prop_entry.get("base_cell", Vector2i.ZERO))
+		var footprint_width_cells: int = int(prop_entry.get("footprint_width_cells", 1))
+		for offset_x in range(footprint_width_cells):
+			for depth in range(GameplayTuningClass.SURFACE_PROP_PROTECTED_DEPTH_CELLS):
+				protected_cells[Vector2i(base_cell.x + offset_x, base_cell.y + depth)] = true
+
+	return protected_cells
+
+
+func _has_adjacent_room(room_edge: String) -> bool:
+	return _get_adjacent_room_index(room_edge) != current_room_index
+
+
+func _get_adjacent_room_index(room_edge: String) -> int:
+	match room_edge:
+		ROOM_EDGE_LEFT:
+			return maxi(current_room_index - 1, 0)
+		ROOM_EDGE_RIGHT:
+			return mini(current_room_index + 1, maxi(room_world_data_list.size() - 1, 0))
+		_:
+			return current_room_index
 
 
 func _get_target_world_position() -> Vector2:
@@ -803,6 +1422,9 @@ func _can_place_any_preview_cells() -> bool:
 
 
 func _can_place_cell(cell_position: Vector2i) -> bool:
+	if not _is_cell_inside_room(cell_position):
+		return false
+
 	if world_data.has_cell(cell_position):
 		return false
 
@@ -813,15 +1435,21 @@ func _try_pick_up_hovered_drops() -> bool:
 	if not _has_hovered_drop():
 		return false
 
-	var drop_entry: Dictionary = material_drop_data.get_drop_at_index(hovered_drop_index)
-	var material_id: int = int(drop_entry.get("material_id", WorldConstantsClass.CellType.AIR))
+	var drop_entry: Dictionary = item_drop_data.get_drop_at_index(hovered_drop_index)
+	var item_kind: String = String(drop_entry.get("item_kind", ""))
+	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 	var amount: int = int(drop_entry.get("amount", 0))
-	var accepted_amount: int = inventory_data.add_material(material_id, amount)
+	var accepted_amount: int = 0
+	if item_kind == "material":
+		accepted_amount = inventory_data.add_material(item_id, amount)
 	var picked_any: bool = false
 
 	if accepted_amount > 0:
-		material_drop_data.remove_amount_at_index(hovered_drop_index, accepted_amount)
-		hovered_drop_index = material_drop_data.find_nearest_drop_index(hovered_cell, 0)
+		item_drop_data.remove_amount_at_index(hovered_drop_index, accepted_amount)
+		hovered_drop_index = item_drop_data.find_nearest_drop_index(
+			get_global_mouse_position(),
+			GameplayTuningClass.DROPPED_ITEM_HOVER_RADIUS_PIXELS
+		)
 		picked_any = true
 
 	if picked_any:
@@ -858,6 +1486,24 @@ func _cycle_selected_material(direction: int) -> void:
 
 func _get_selected_material_color() -> Color:
 	return WorldMaterialsClass.get_debug_color(selected_material_id)
+
+
+func _get_drop_item_name(drop_entry: Dictionary) -> String:
+	var item_kind: String = String(drop_entry.get("item_kind", ""))
+	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
+	if item_kind == "material":
+		return _get_cell_type_name(item_id)
+
+	return "ITEM"
+
+
+func _get_drop_item_color(drop_entry: Dictionary) -> Color:
+	var item_kind: String = String(drop_entry.get("item_kind", ""))
+	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
+	if item_kind == "material":
+		return WorldMaterialsClass.get_debug_color(item_id)
+
+	return Color(1.0, 1.0, 1.0, 1.0)
 
 
 func _get_dominant_inventory_color() -> Color:
@@ -955,7 +1601,7 @@ func _refresh_godmode_ui() -> void:
 		inventory_data.max_capacity,
 		inventory_data.get_total_weight(),
 		inventory_data.max_weight_capacity,
-		material_drop_data.get_total_drop_count()
+		item_drop_data.get_total_drop_count()
 	]
 	material_counts_value.text = "DIRT %d (%.1f)  STONE %d (%.1f)" % [
 		inventory_data.get_material_count(WorldConstantsClass.CellType.DIRT),

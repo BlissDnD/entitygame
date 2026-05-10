@@ -90,6 +90,32 @@ const PLAYER_SIZE_CELLS: Vector2i = Vector2i(3, 4)
 # Used by: `world_scene.gd`.
 const PLAYER_MOVE_SPEED: float = 260.0
 
+# Time in seconds of continuous running needed to reach full speed boost.
+# Used by: `world_scene.gd`.
+const PLAYER_RUN_BOOST_TIME: float = 1.0
+
+# Maximum continuous-running speed multiplier.
+# `1.2` means 20 percent faster than base movement speed.
+# Used by: `world_scene.gd`.
+const PLAYER_RUN_BOOST_MULTIPLIER: float = 1.2
+
+# Guaranteed ground step-up height in logical cells.
+# Used by: `world_scene.gd`.
+const PLAYER_STEP_UP_BASE_CELLS: int = 1
+
+# Extra step-up height unlocked once the player has enough running speed.
+# Used by: `world_scene.gd`.
+const PLAYER_STEP_UP_FAST_CELLS: int = 2
+
+# Minimum run multiplier needed before the larger step-up height is allowed.
+# Used by: `world_scene.gd`.
+const PLAYER_FAST_STEP_THRESHOLD: float = 1.12
+
+# Small upward assist used when horizontal movement catches on voxel sides.
+# Helps the player slide past rough side faces without feeling sticky.
+# Used by: `world_scene.gd`.
+const PLAYER_WALL_STEP_ASSIST_PIXELS: int = 4
+
 # Upward jump launch speed for the prototype player.
 # Used by: `world_scene.gd`.
 const PLAYER_JUMP_VELOCITY: float = -360.0
@@ -102,13 +128,79 @@ const PLAYER_GRAVITY: float = 980.0
 # Used by: `world_scene.gd`.
 const PLAYER_SPAWN_WORLD_POSITION: Vector2 = Vector2(-12.0, 0.0)
 
-# Number of logical cells visible horizontally in the prototype camera framing.
+# Target horizontal tile count visible in gameplay.
 # Used by: `world_scene.gd`.
-const CAMERA_VIEW_CELLS_X: int = 72
+const CAMERA_VIEW_CELLS_X: int = 90
 
-# Number of logical cells visible vertically in the prototype camera framing.
+# Reference vertical tile count used for room sizing defaults.
 # Used by: `world_scene.gd`.
 const CAMERA_VIEW_CELLS_Y: int = 42
+
+# Number of pre-generated rooms in the current prototype map.
+# Used by: `world_scene.gd`.
+const ROOM_COUNT: int = 3
+
+# Minimum random room size in logical cells.
+# Width is intentionally at least 3x the base camera width.
+# Used by: `world_scene.gd`.
+const ROOM_MIN_SIZE_CELLS: Vector2i = Vector2i(CAMERA_VIEW_CELLS_X * 3, CAMERA_VIEW_CELLS_Y * 2)
+
+# Maximum random room size in logical cells.
+# Kept moderate so prototype rooms stay roomy without getting too heavy.
+# Used by: `world_scene.gd`.
+const ROOM_MAX_SIZE_CELLS: Vector2i = Vector2i(CAMERA_VIEW_CELLS_X * 5, CAMERA_VIEW_CELLS_Y * 4)
+
+# Room-edge transition trigger thickness in logical cells.
+# Used by: `world_scene.gd`.
+const ROOM_TRANSITION_MARGIN_CELLS: int = 2
+
+# Player entry inset from a destination room edge, in logical cells.
+# Used by: `world_scene.gd`.
+const ROOM_ENTRY_INSET_CELLS: int = 4
+
+# Draw color for room boundary debugging and room-transition arrows.
+# Used by: `world_scene.gd`.
+const ROOM_EDGE_COLOR: Color = Color(0.9, 0.92, 0.98, 0.45)
+
+# Fill color for active room-transition arrows.
+# Used by: `world_scene.gd`.
+const ROOM_TRANSITION_ARROW_COLOR: Color = Color(0.98, 0.92, 0.5, 0.95)
+
+# Surface prop generation density. Higher values spawn more props on the surface.
+# Used by: `world_scene.gd`.
+const SURFACE_PROP_DENSITY: float = 0.22
+
+# Minimum horizontal gap between spawned surface props, in logical cells.
+# Used by: `world_scene.gd`.
+const SURFACE_PROP_SPACING_MIN_CELLS: int = 2
+
+# Safe no-prop edge buffer so room transitions stay clear.
+# Used by: `world_scene.gd`.
+const SURFACE_PROP_EDGE_MARGIN_CELLS: int = 6
+
+# Number of ground cells under a surface prop that cannot be mined.
+# Used by: `world_scene.gd`.
+const SURFACE_PROP_PROTECTED_DEPTH_CELLS: int = 3
+
+# Tree trunk color for prototype surface props.
+# Used by: `world_scene.gd`.
+const TREE_TRUNK_COLOR: Color = Color(0.38, 0.24, 0.12, 1.0)
+
+# Tree leaf color for prototype surface props.
+# Used by: `world_scene.gd`.
+const TREE_LEAF_COLOR: Color = Color(0.26, 0.66, 0.3, 1.0)
+
+# Multiplier applied to generated tree sizes.
+# Used by: `world_scene.gd`.
+const TREE_SIZE_MULTIPLIER: float = 3.0
+
+# Bush color for prototype surface props.
+# Used by: `world_scene.gd`.
+const BUSH_COLOR: Color = Color(0.33, 0.62, 0.27, 1.0)
+
+# Rock color for prototype surface props.
+# Used by: `world_scene.gd`.
+const ROCK_COLOR: Color = Color(0.55, 0.57, 0.62, 1.0)
 
 # Camera rotation follow speed for planetary horizon alignment.
 # Higher values feel snappier, lower values feel smoother.
@@ -199,9 +291,33 @@ const DROPPED_MATERIAL_STACK_OFFSET: float = 2.0
 # Used by: `world_scene.gd`.
 const DROPPED_MATERIAL_HOVER_OUTLINE_COLOR: Color = Color(1.0, 0.95, 0.72, 0.95)
 
-# Cell radius used to merge nearby dropped materials into a shared pile.
-# Used by: `world_scene.gd`, `material_drop_data.gd`.
-const DROPPED_MATERIAL_MERGE_RADIUS_CELLS: int = 2
+# Gravity applied to dropped item piles.
+# Used by: `world_scene.gd`, `item_drop_data.gd`.
+const DROPPED_ITEM_GRAVITY: float = 980.0
+
+# Pixel radius used when hovering or clicking a dropped item pile.
+# Used by: `world_scene.gd`.
+const DROPPED_ITEM_HOVER_RADIUS_PIXELS: float = 14.0
+
+# Pixel radius in which same-type nearby dropped items attract one another.
+# Used by: `world_scene.gd`, `item_drop_data.gd`.
+const DROPPED_ITEM_PULL_RADIUS_PIXELS: float = 56.0
+
+# Pixel radius at which same-type dropped items merge into one pile.
+# Used by: `world_scene.gd`, `item_drop_data.gd`.
+const DROPPED_ITEM_MERGE_RADIUS_PIXELS: float = 18.0
+
+# Minimum visual scale applied to dropped item piles.
+# Used by: `world_scene.gd`.
+const DROPPED_ITEM_PILE_MIN_SCALE: float = 1.0
+
+# Maximum visual scale applied to dropped item piles.
+# Used by: `world_scene.gd`.
+const DROPPED_ITEM_PILE_MAX_SCALE: float = 2.1
+
+# Item count at which the dropped pile reaches its maximum visual size.
+# Used by: `world_scene.gd`.
+const DROPPED_ITEM_PILE_MAX_VISUAL_COUNT: int = 24
 
 # Fill color for the dropped material hover tooltip.
 # Used by: `world_scene.gd`.

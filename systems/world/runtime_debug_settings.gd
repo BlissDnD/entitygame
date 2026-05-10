@@ -2,6 +2,7 @@ class_name RuntimeDebugSettings
 extends RefCounted
 
 const GameplayTuningClass = preload("res://systems/config/gameplay_tuning.gd")
+const WorldConstantsClass = preload("res://systems/world/world_constants.gd")
 
 var mining_power: float = GameplayTuningClass.GODMODE_DEFAULT_MINING_POWER
 var mining_shape: int = GameplayTuningClass.GODMODE_DEFAULT_SHAPE
@@ -20,11 +21,11 @@ func set_mining_power(value: float) -> void:
 
 
 func set_mining_shape(value: int) -> void:
-	if value == GameplayTuningClass.WorldConstantsClass.ToolShape.CIRCLE:
-		mining_shape = GameplayTuningClass.WorldConstantsClass.ToolShape.CIRCLE
+	if value == WorldConstantsClass.ToolShape.CIRCLE:
+		mining_shape = WorldConstantsClass.ToolShape.CIRCLE
 		return
 
-	mining_shape = GameplayTuningClass.WorldConstantsClass.ToolShape.SQUARE
+	mining_shape = WorldConstantsClass.ToolShape.SQUARE
 
 
 func set_mining_radius(value: int) -> void:
