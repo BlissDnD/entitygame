@@ -1,2 +1,43 @@
+# Godot 4+
+
+.godot/
+
+# Godot import files
 .import/
-.export/
+
+# Mono
+.mono/
+
+# Export presets
+export.cfg
+export_credentials.cfg
+
+# Imported translations
+*.translation
+
+# Temporary files
+*.tmp
+*.bak
+
+# Crash logs
+godot*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Build folders
+build/
+dist/
+
+# Debug
+logs/
+
+# Environment
+.env
