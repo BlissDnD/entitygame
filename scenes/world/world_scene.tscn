@@ -22,6 +22,74 @@ offset_left = 8.0
 offset_top = 8.0
 offset_right = 312.0
 offset_bottom = 32.0
-placeholder_text = "debug 1, debug 0, close"
+placeholder_text = "debug 1, mining_power 50, godmode on, close"
+
+[node name="godmode_panel" type="Panel" parent="console_layer"]
+visible = false
+offset_left = 16.0
+offset_top = 80.0
+offset_right = 336.0
+offset_bottom = 232.0
+
+[node name="mining_power_slider" type="HSlider" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 16.0
+offset_right = 220.0
+offset_bottom = 32.0
+min_value = 1.0
+max_value = 100.0
+step = 1.0
+value = 10.0
+
+[node name="mining_power_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 232.0
+offset_top = 14.0
+offset_right = 308.0
+offset_bottom = 34.0
+text = "Power 10"
+
+[node name="mining_radius_slider" type="HSlider" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 52.0
+offset_right = 220.0
+offset_bottom = 68.0
+min_value = 1.0
+max_value = 10.0
+step = 1.0
+value = 2.0
+
+[node name="mining_radius_value" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 232.0
+offset_top = 50.0
+offset_right = 308.0
+offset_bottom = 70.0
+text = "Radius 2"
+
+[node name="square_button" type="Button" parent="console_layer/godmode_panel"]
+toggle_mode = true
+offset_left = 12.0
+offset_top = 92.0
+offset_right = 104.0
+offset_bottom = 124.0
+text = "Square"
+
+[node name="circle_button" type="Button" parent="console_layer/godmode_panel"]
+toggle_mode = true
+offset_left = 112.0
+offset_top = 92.0
+offset_right = 204.0
+offset_bottom = 124.0
+text = "Circle"
+
+[node name="godmode_summary" type="Label" parent="console_layer/godmode_panel"]
+offset_left = 12.0
+offset_top = 136.0
+offset_right = 304.0
+offset_bottom = 160.0
+text = "Shape square  Radius 2  Power 10"
 
 [connection signal="text_submitted" from="console_layer/console_panel/console_input" to="." method="_on_console_input_text_submitted"]
+[connection signal="value_changed" from="console_layer/godmode_panel/mining_power_slider" to="." method="_on_mining_power_slider_value_changed"]
+[connection signal="value_changed" from="console_layer/godmode_panel/mining_radius_slider" to="." method="_on_mining_radius_slider_value_changed"]
+[connection signal="pressed" from="console_layer/godmode_panel/square_button" to="." method="_on_square_button_pressed"]
+[connection signal="pressed" from="console_layer/godmode_panel/circle_button" to="." method="_on_circle_button_pressed"]
