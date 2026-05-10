@@ -1,12 +1,6 @@
 extends Node2D
 
-const VIEW_CELLS_X := 72
-const VIEW_CELLS_Y := 42
-const PLAYER_SPEED := 260.0
-const JUMP_VELOCITY := -360.0
-const GRAVITY := 980.0
-const MINING_RANGE_CELLS := 12.0
-
+const GameplayTuningClass = preload("res://systems/config/gameplay_tuning.gd")
 const WorldConstantsClass = preload("res://systems/world/world_constants.gd")
 const WorldUtilsClass = preload("res://systems/world/world_utils.gd")
 const WorldDataClass = preload("res://systems/world/world_data.gd")
@@ -20,11 +14,11 @@ var active_tool_profile: Dictionary = MiningToolProfilesClass.get_profile("start
 var debug_settings: RuntimeDebugSettings = RuntimeDebugSettingsClass.new()
 var world_data: WorldData = WorldDataClass.new()
 var mining_progress_data: MiningProgressData = MiningProgressDataClass.new()
-var player_world_position: Vector2 = Vector2(-12.0, -96.0)
+var player_world_position: Vector2 = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
 var player_velocity: Vector2 = Vector2.ZERO
 var hovered_cell: Vector2i = Vector2i.ZERO
 var mining_center_cell: Vector2i = Vector2i.ZERO
-var debug_enabled: bool = false
+var debug_enabled: bool = GameplayTuningClass.DEBUG_OVERLAY_DEFAULT_ENABLED
 var has_inspected_cell: bool = false
 var inspected_cell: Vector2i = Vector2i.ZERO
 
@@ -94,8 +88,8 @@ func _draw() -> void:
 	var cell_size: Vector2i = WorldConstantsClass.CELL_SIZE
 	var view_origin: Vector2 = _get_view_origin_world()
 	var view_size: Vector2 = Vector2(
-		VIEW_CELLS_X * cell_size.x,
-		VIEW_CELLS_Y * cell_size.y
+		GameplayTuningClass.CAMERA_VIEW_CELLS_X * cell_size.x,
+		GameplayTuningClass.CAMERA_VIEW_CELLS_Y * cell_size.y
 	)
 
 	draw_rect(Rect2(view_origin, view_size), Color(0.07, 0.08, 0.1, 1.0), true)
@@ -113,11 +107,11 @@ func _update_player(delta: float) -> bool:
 	var previous_position: Vector2 = player_world_position
 	var input_axis: float = Input.get_axis("move_left", "move_right")
 
-	player_velocity.x = input_axis * PLAYER_SPEED
-	player_velocity.y += GRAVITY * delta
+	player_velocity.x = input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED
+	player_velocity.y += GameplayTuningClass.PLAYER_GRAVITY * delta
 
 	if Input.is_action_just_pressed("move_up") and _is_player_on_floor():
-		player_velocity.y = JUMP_VELOCITY
+		player_velocity.y = GameplayTuningClass.PLAYER_JUMP_VELOCITY
 
 	_move_player_axis(player_velocity.x * delta, true)
 	_move_player_axis(player_velocity.y * delta, false)
@@ -154,11 +148,15 @@ func _update_mining(delta: float) -> bool:
 			continue
 
 		var falloff_multiplier: float = active_tool_profile.get("mining_falloff_multiplier", 0.45)
-		var order_factor: float = lerpf(
-			1.0,
-			falloff_multiplier,
-			float(index) / float(cell_count)
-		)
+		var order_factor: float = 1.0
+
+		if GameplayTuningClass.MINING_USE_DIRECTIONAL_SPEED_FALLOFF:
+			order_factor = lerpf(
+				1.0,
+				falloff_multiplier,
+				float(index) / float(cell_count)
+			)
+
 		var progress_per_second: float = (debug_settings.mining_power / resistance) * order_factor
 		var progress: float = mining_progress_data.add_progress(cell_position, progress_per_second * delta)
 		changed = true
@@ -202,21 +200,21 @@ func _draw_terrain_cells() -> void:
 func _draw_player() -> void:
 	var player_rect: Rect2 = Rect2(
 		player_world_position,
-		_get_world_size_from_cells(WorldConstantsClass.PLAYER_SIZE_CELLS)
+		_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
 	)
-	draw_rect(player_rect, Color(0.98, 0.84, 0.28, 0.92), true)
-	draw_rect(player_rect, Color(1.0, 0.96, 0.62, 1.0), false, 2.0)
+	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_COLOR, true)
+	draw_rect(player_rect, GameplayTuningClass.PLAYER_DEBUG_OUTLINE_COLOR, false, 2.0)
 
 
 func _draw_mining_range() -> void:
-	var radius_pixels: float = MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
+	var radius_pixels: float = GameplayTuningClass.MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
 	draw_arc(
 		_get_player_center_world(),
 		radius_pixels,
 		0.0,
 		TAU,
 		96,
-		Color(0.34, 0.66, 1.0, 0.72),
+		GameplayTuningClass.MINING_RANGE_COLOR,
 		1.5
 	)
 
@@ -226,23 +224,27 @@ func _draw_hovered_center() -> void:
 		WorldUtilsClass.cell_to_world(hovered_cell),
 		Vector2(WorldConstantsClass.CELL_SIZE)
 	)
-	draw_rect(hovered_rect, Color(1.0, 1.0, 1.0, 0.16), false, 1.0)
+	draw_rect(hovered_rect, GameplayTuningClass.DEBUG_HOVER_CELL_COLOR, false, 1.0)
 
 
 func _draw_mining_preview() -> void:
 	var ordered_cells: Array[Vector2i] = _get_ordered_preview_cells()
 	var cell_count: int = maxi(ordered_cells.size() - 1, 1)
-	var preview_base: Color = Color(0.2, 0.95, 1.0, 0.28)
-	var preview_line: Color = Color(0.2, 0.95, 1.0, 0.95)
+	var preview_base: Color = GameplayTuningClass.MINING_PREVIEW_VALID_FILL_COLOR
+	var preview_line: Color = GameplayTuningClass.MINING_PREVIEW_VALID_OUTLINE_COLOR
 
 	if not _is_mining_target_in_range():
-		preview_base = Color(1.0, 0.25, 0.25, 0.28)
-		preview_line = Color(1.0, 0.35, 0.35, 0.95)
+		preview_base = GameplayTuningClass.MINING_PREVIEW_INVALID_FILL_COLOR
+		preview_line = GameplayTuningClass.MINING_PREVIEW_INVALID_OUTLINE_COLOR
 
 	for index in range(ordered_cells.size()):
 		var cell_position: Vector2i = ordered_cells[index]
 		var traversal_t: float = float(index) / float(cell_count)
-		var brightness: float = lerpf(1.0, 0.42, traversal_t)
+		var brightness: float = lerpf(
+			GameplayTuningClass.MINING_PREVIEW_NEAR_BRIGHTNESS,
+			GameplayTuningClass.MINING_PREVIEW_FAR_BRIGHTNESS,
+			traversal_t
+		)
 		var fill_color: Color = Color(
 			preview_base.r * brightness,
 			preview_base.g * brightness,
@@ -339,7 +341,7 @@ func _move_player_axis(motion: float, is_horizontal: bool) -> void:
 
 
 func _player_collides_at(test_position: Vector2) -> bool:
-	var player_rect: Rect2 = Rect2(test_position, _get_world_size_from_cells(WorldConstantsClass.PLAYER_SIZE_CELLS))
+	var player_rect: Rect2 = Rect2(test_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
 	var start_cell: Vector2i = WorldUtilsClass.world_to_cell(player_rect.position)
 	var end_cell: Vector2i = WorldUtilsClass.world_to_cell(player_rect.end - Vector2.ONE)
 
@@ -367,21 +369,20 @@ func _generate_test_terrain() -> void:
 	world_data.clear()
 	mining_progress_data.clear()
 
-	for x in range(-48, 49):
-		world_data.set_cell(Vector2i(x, 8), WorldConstantsClass.CellType.DIRT)
-		world_data.set_cell(Vector2i(x, 9), WorldConstantsClass.CellType.DIRT)
-		world_data.set_cell(Vector2i(x, 10), WorldConstantsClass.CellType.DIRT)
+	for x in range(-GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS, GameplayTuningClass.SURFACE_HALF_WIDTH_CELLS + 1):
+		for y in range(GameplayTuningClass.SURFACE_START_DEPTH, GameplayTuningClass.SURFACE_START_DEPTH + GameplayTuningClass.SURFACE_DEPTH):
+			world_data.set_cell(Vector2i(x, y), WorldConstantsClass.CellType.DIRT)
 
-	for x in range(-50, 51):
-		for y in range(11, 24):
+	for x in range(-GameplayTuningClass.STONE_HALF_WIDTH_CELLS, GameplayTuningClass.STONE_HALF_WIDTH_CELLS + 1):
+		for y in range(GameplayTuningClass.STONE_LAYER_START_DEPTH, GameplayTuningClass.STONE_LAYER_END_DEPTH + 1):
 			world_data.set_cell(Vector2i(x, y), WorldConstantsClass.CellType.STONE)
 
 
 func _get_view_origin_world() -> Vector2:
 	var cell_size: Vector2i = WorldConstantsClass.CELL_SIZE
 	return _get_player_center_world() - Vector2(
-		(VIEW_CELLS_X * cell_size.x) * 0.5,
-		(VIEW_CELLS_Y * cell_size.y) * 0.5
+		(GameplayTuningClass.CAMERA_VIEW_CELLS_X * cell_size.x) * 0.5,
+		(GameplayTuningClass.CAMERA_VIEW_CELLS_Y * cell_size.y) * 0.5
 	)
 
 
@@ -460,11 +461,11 @@ func _get_traversal_index(cell_position: Vector2i) -> int:
 func _is_mining_target_in_range() -> bool:
 	var player_center_world: Vector2 = _get_player_center_world()
 	var target_center_world: Vector2 = _get_cell_center_world(mining_center_cell)
-	return player_center_world.distance_to(target_center_world) <= MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
+	return player_center_world.distance_to(target_center_world) <= GameplayTuningClass.MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
 
 
 func _get_player_center_world() -> Vector2:
-	return player_world_position + (_get_world_size_from_cells(WorldConstantsClass.PLAYER_SIZE_CELLS) * 0.5)
+	return player_world_position + (_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS) * 0.5)
 
 
 func _get_cell_center_world(cell_position: Vector2i) -> Vector2:
@@ -504,11 +505,11 @@ func _get_shape_name(shape_type: int) -> String:
 func _get_damage_stage_brightness(damage_stage: int) -> float:
 	match damage_stage:
 		1:
-			return 0.88
+			return GameplayTuningClass.DAMAGE_STAGE_25_BRIGHTNESS
 		2:
-			return 0.72
+			return GameplayTuningClass.DAMAGE_STAGE_50_BRIGHTNESS
 		3:
-			return 0.56
+			return GameplayTuningClass.DAMAGE_STAGE_75_BRIGHTNESS
 		_:
 			return 1.0
 
@@ -548,6 +549,10 @@ func _update_godmode_visibility() -> void:
 
 func _refresh_godmode_ui() -> void:
 	_update_godmode_visibility()
+	mining_power_slider.min_value = GameplayTuningClass.MINING_POWER_MIN
+	mining_power_slider.max_value = GameplayTuningClass.MINING_POWER_MAX
+	mining_radius_slider.min_value = GameplayTuningClass.MINING_RADIUS_MIN
+	mining_radius_slider.max_value = GameplayTuningClass.MINING_RADIUS_MAX
 	mining_power_slider.value = debug_settings.mining_power
 	mining_power_value.text = "Power %d" % int(round(debug_settings.mining_power))
 	mining_radius_slider.value = debug_settings.mining_radius

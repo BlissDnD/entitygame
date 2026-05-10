@@ -2,18 +2,19 @@ class_name WorldMaterials
 extends RefCounted
 
 const WorldConstantsClass = preload("res://systems/world/world_constants.gd")
+const GameplayTuningClass = preload("res://systems/config/gameplay_tuning.gd")
 
 const MATERIALS := {
 	WorldConstantsClass.CellType.DIRT: {
 		"display_name": "DIRT",
-		"mining_resistance": 10.0,
-		"debug_color": Color(0.56, 0.35, 0.22, 1.0),
+		"mining_resistance": GameplayTuningClass.DIRT_MINING_RESISTANCE,
+		"debug_color": GameplayTuningClass.DIRT_DEBUG_COLOR,
 		"material_tags": ["solid", "dirt", "mineable"],
 	},
 	WorldConstantsClass.CellType.STONE: {
 		"display_name": "STONE",
-		"mining_resistance": 50.0,
-		"debug_color": Color(0.5, 0.54, 0.6, 1.0),
+		"mining_resistance": GameplayTuningClass.STONE_MINING_RESISTANCE,
+		"debug_color": GameplayTuningClass.STONE_DEBUG_COLOR,
 		"material_tags": ["solid", "stone", "mineable"],
 	},
 }
