@@ -1,0 +1,45 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://entity/placeable/placeable_object.gd" id="1_placeable_object"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_trunk"]
+size = Vector2(16, 32)
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_canopy"]
+radius = 24.0
+height = 64.0
+
+[node name="PrototypeTree" type="Node2D"]
+script = ExtResource("1_placeable_object")
+
+[node name="Trunk" type="Polygon2D" parent="."]
+color = Color(0.38, 0.24, 0.12, 1)
+polygon = PackedVector2Array(-8, -32, 8, -32, 10, 0, -10, 0)
+
+[node name="CanopyBack" type="Polygon2D" parent="."]
+color = Color(0.18, 0.48, 0.24, 1)
+polygon = PackedVector2Array(-28, -66, -6, -88, 24, -78, 34, -50, 14, -30, -20, -34)
+
+[node name="CanopyFront" type="Polygon2D" parent="."]
+color = Color(0.26, 0.66, 0.3, 1)
+polygon = PackedVector2Array(-36, -54, -14, -78, 18, -70, 42, -42, 24, -18, -16, -22)
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="TrunkCollision" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(0, -16)
+shape = SubResource("RectangleShape2D_trunk")
+disabled = true
+
+[node name="CanopyCollision" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(0, -54)
+rotation = 1.5708
+shape = SubResource("CapsuleShape2D_canopy")
+disabled = true
+
+[node name="DebugLabel" type="Label" parent="."]
+visible = false
+offset_left = -36.0
+offset_top = -104.0
+offset_right = 36.0
+offset_bottom = -81.0

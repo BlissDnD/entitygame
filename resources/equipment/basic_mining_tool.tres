@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/items/item_definition.gd" id="1_item_definition"]
+[ext_resource type="Resource" path="res://resources/cursor/mine_cone.tres" id="2_cursor"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"basic_mining_tool"
+display_name = "Basic Mining Tool"
+description = "A simple mining tool."
+item_category = 1
+max_stack = 1
+weight = 2.0
+value = 15
+can_be_carried = true
+can_be_equipped = true
+is_tool = true
+cursor_behavior = ExtResource("2_cursor")

@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://entity/npc/atlas_worker/atlas_worker.gd" id="1_atlas_worker"]
+
+[node name="AtlasWorker" type="Node2D"]
+script = ExtResource("1_atlas_worker")
+
+[node name="body" type="Polygon2D" parent="."]
+color = Color(0.02, 0.02, 0.025, 1)
+polygon = PackedVector2Array(-5, -10, 5, -10, 5, 0, -5, 0)

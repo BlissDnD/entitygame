@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PlaceableObjectDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/placeables/placeable_object_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://entity/placeable/placeable_object.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+id = &"wall_crystal"
+display_name = "Wall Crystal"
+scene = ExtResource("2_scene")
+placement_mode = 2
+has_collision = false
+footprint_tiles = Vector2i(1, 2)
+placement_offset = Vector2(4, 8)
+requires_support_tile = true

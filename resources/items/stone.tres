@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://systems/items/item_definition.gd" id="1_item_definition"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"stone"
+display_name = "Stone"
+description = "A chunk of stone."
+item_category = 0
+max_stack = 99
+weight = 0.4
+value = 1
+can_be_carried = true

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/items/item_definition.gd" id="1_item_definition"]
+[ext_resource type="Resource" path="res://resources/cursor/scan.tres" id="2_cursor"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"scanner"
+display_name = "Scanner"
+description = "A reusable scanner prototype."
+item_category = 4
+max_stack = 1
+weight = 1.0
+value = 20
+can_be_carried = true
+can_be_used = true
+cursor_behavior = ExtResource("2_cursor")

@@ -138,7 +138,7 @@ const CAMERA_VIEW_CELLS_Y: int = 42
 
 # Number of pre-generated rooms in the current prototype map.
 # Used by: `world_scene.gd`.
-const ROOM_COUNT: int = 3
+const ROOM_COUNT: int = 24
 
 # Minimum random room size in logical cells.
 # Width is intentionally at least 3x the base camera width.
@@ -166,6 +166,18 @@ const ROOM_EDGE_COLOR: Color = Color(0.9, 0.92, 0.98, 0.45)
 # Used by: `world_scene.gd`.
 const ROOM_TRANSITION_ARROW_COLOR: Color = Color(0.98, 0.92, 0.5, 0.95)
 
+# Horizontal void distance beyond an outer planet edge before fall-off triggers.
+# Used by: `world_scene.gd`.
+const VOID_FALL_MARGIN_CELLS: int = 5
+
+# Vertical void distance below the room before fall-off triggers.
+# Used by: `world_scene.gd`.
+const VOID_FALL_DEPTH_CELLS: int = 16
+
+# Extra camera follow range beyond the outer planet edges.
+# Used by: `world_scene.gd`.
+const VOID_CAMERA_MARGIN_CELLS: int = 24
+
 # Surface prop generation density. Higher values spawn more props on the surface.
 # Used by: `world_scene.gd`.
 const SURFACE_PROP_DENSITY: float = 0.22
@@ -181,18 +193,6 @@ const SURFACE_PROP_EDGE_MARGIN_CELLS: int = 6
 # Number of ground cells under a surface prop that cannot be mined.
 # Used by: `world_scene.gd`.
 const SURFACE_PROP_PROTECTED_DEPTH_CELLS: int = 3
-
-# Tree trunk color for prototype surface props.
-# Used by: `world_scene.gd`.
-const TREE_TRUNK_COLOR: Color = Color(0.38, 0.24, 0.12, 1.0)
-
-# Tree leaf color for prototype surface props.
-# Used by: `world_scene.gd`.
-const TREE_LEAF_COLOR: Color = Color(0.26, 0.66, 0.3, 1.0)
-
-# Multiplier applied to generated tree sizes.
-# Used by: `world_scene.gd`.
-const TREE_SIZE_MULTIPLIER: float = 3.0
 
 # Bush color for prototype surface props.
 # Used by: `world_scene.gd`.

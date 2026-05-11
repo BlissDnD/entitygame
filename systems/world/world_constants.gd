@@ -18,3 +18,10 @@ enum ToolShape {
 	SQUARE,
 	CIRCLE,
 }
+
+
+enum RampType {
+	NONE,
+	UP_RIGHT,
+	UP_LEFT,
+}

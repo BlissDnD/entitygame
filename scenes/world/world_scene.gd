@@ -11,15 +11,32 @@ const ItemDropDataClass = preload("res://systems/items/item_drop_data.gd")
 const WorldRendererClass = preload("res://systems/world/world_renderer.gd")
 const RuntimeDebugSettingsClass = preload("res://systems/world/runtime_debug_settings.gd")
 const InventoryDataClass = preload("res://systems/inventory/inventory_data.gd")
+const ItemTypesClass = preload("res://systems/items/item_types.gd")
+const EquipmentSlotClass = preload("res://systems/equipment/equipment_slot.gd")
+const PlayerEquipmentClass = preload("res://systems/equipment/player_equipment.gd")
+const BackpackContainerClass = preload("res://systems/backpack/backpack_container.gd")
+const PlayerCursorControllerClass = preload("res://systems/cursor/player_cursor_controller.gd")
+const CursorBehaviorDefinitionClass = preload("res://systems/cursor/cursor_behavior_definition.gd")
+const PlanetSunCycleClass = preload("res://systems/time/planet_sun_cycle.gd")
+const PlaceablePlacementServiceClass = preload("res://systems/placeables/placeable_placement_service.gd")
+const PrototypeTreeDefinition = preload("res://resources/placeables/prototype_tree.tres")
+const AtlasWorkerSpawnPointScene = preload("res://entity/npc/atlas_worker/atlas_worker_spawn_point.tscn")
+const BackpackWorldItemScene = preload("res://entity/items/backpack_world_item.tscn")
+const BasicMiningToolDefinition = preload("res://resources/equipment/basic_mining_tool.tres")
+const BasicBackpackItemDefinition = preload("res://resources/equipment/basic_backpack.tres")
+const StoneItemDefinition = preload("res://resources/items/stone.tres")
+const ScrapItemDefinition = preload("res://resources/items/scrap.tres")
 
 const ROOM_EDGE_NONE: String = ""
 const ROOM_EDGE_LEFT: String = "left"
 const ROOM_EDGE_RIGHT: String = "right"
 const ROOM_EDGE_TOP: String = "top"
 const ROOM_EDGE_BOTTOM: String = "bottom"
-const SURFACE_PROP_TREE: String = "tree"
 const SURFACE_PROP_BUSH: String = "bush"
 const SURFACE_PROP_ROCK: String = "rock"
+const MAX_ATLAS_WORKER_FOLLOWERS: int = 10
+const BACKGROUND_FADE_DURATION: float = 1.4
+const SUN_VISUAL_RADIUS: float = 20.0
 
 var active_tool_profile: Dictionary = MiningToolProfilesClass.get_profile("starter_pickaxe")
 var debug_settings = RuntimeDebugSettingsClass.new()
@@ -30,6 +47,10 @@ var inventory_data = InventoryDataClass.new(
 	GameplayTuningClass.INVENTORY_CAPACITY,
 	GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY
 )
+var player_equipment = PlayerEquipmentClass.new()
+var backpack_container = BackpackContainerClass.new()
+var player_cursor_controller = PlayerCursorControllerClass.new()
+var planet_sun_cycle = PlanetSunCycleClass.new()
 var player_world_position: Vector2 = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
 var player_velocity: Vector2 = Vector2.ZERO
 var hovered_cell: Vector2i = Vector2i.ZERO
@@ -46,13 +67,31 @@ var room_drop_data_list: Array = []
 var room_size_cells_list: Array[Vector2i] = []
 var room_surface_props_list: Array = []
 var room_protected_cells_list: Array = []
+var room_placeable_container_list: Array[Node2D] = []
+var room_npc_container_list: Array[Node2D] = []
+var active_atlas_workers: Array[AtlasWorker] = []
 var current_room_index: int = 0
 var room_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var has_won: bool = false
+var is_handling_void_fall: bool = false
+var room_transition_lock_time: float = 0.0
 var run_hold_time: float = 0.0
 var last_run_direction: int = 0
+var world_backpack_items: Array[BackpackWorldItem] = []
+var has_spawned_initial_backpack: bool = false
+var has_printed_missing_mining_tool_warning: bool = false
+var background_start_color: Color = Color(0.07, 0.08, 0.1, 1.0)
+var background_current_color: Color = Color(0.07, 0.08, 0.1, 1.0)
+var background_target_color: Color = Color(0.07, 0.08, 0.1, 1.0)
+var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 
 @onready var camera_2d: Camera2D = $camera_2d
+@onready var crash_ship: CrashShip = $crash_ship
+@onready var placeable_objects: Node2D = $placeable_objects
+@onready var world_items: Node2D = $world_items
+@onready var npc_objects: Node2D = $npc_objects
+@onready var persistent_followers: Node2D = $npc_objects/persistent_followers
+@onready var player_follow_target: Node2D = $player_follow_target
 @onready var console_layer: CanvasLayer = $console_layer
 @onready var console_panel: Panel = $console_layer/console_panel
 @onready var console_input: LineEdit = $console_layer/console_panel/console_input
@@ -67,42 +106,92 @@ var last_run_direction: int = 0
 @onready var inventory_value: Label = $console_layer/godmode_panel/inventory_value
 @onready var material_counts_value: Label = $console_layer/godmode_panel/material_counts_value
 @onready var placement_value: Label = $console_layer/godmode_panel/placement_value
+@onready var equipment_status_value: Label = $console_layer/godmode_panel/equipment_status_value
+@onready var backpack_contents_value: Label = $console_layer/godmode_panel/backpack_contents_value
+@onready var sun_cycle_status_value: Label = $console_layer/godmode_panel/sun_cycle_status_value
+@onready var equip_tool_button: Button = $console_layer/godmode_panel/equip_tool_button
+@onready var unequip_tool_button: Button = $console_layer/godmode_panel/unequip_tool_button
+@onready var equip_backpack_button: Button = $console_layer/godmode_panel/equip_backpack_button
+@onready var unequip_backpack_button: Button = $console_layer/godmode_panel/unequip_backpack_button
+@onready var add_stone_button: Button = $console_layer/godmode_panel/add_stone_button
+@onready var add_scrap_button: Button = $console_layer/godmode_panel/add_scrap_button
+@onready var print_equipment_button: Button = $console_layer/godmode_panel/print_equipment_button
+@onready var print_backpack_button: Button = $console_layer/godmode_panel/print_backpack_button
 
 
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
 	room_rng.randomize()
+	_setup_item_debug_components()
+	_setup_sun_cycle()
 	_apply_view_resolution()
 	_generate_rooms()
 	camera_2d.ignore_rotation = true
 	camera_2d.zoom = Vector2.ONE
 	_set_current_room(0)
+	_place_crash_ship_in_starting_room()
 	player_world_position = _get_room_spawn_position()
 	_set_console_visible(false)
 	_update_godmode_visibility()
 	_update_hover_state()
 	_snap_player_to_ground()
+	_spawn_initial_backpack_world_item()
+	_update_player_follow_target()
 	_apply_camera_tracking(-1.0)
 	_refresh_godmode_ui()
 	queue_redraw()
 
 
+func _setup_item_debug_components() -> void:
+	player_equipment.name = "player_equipment"
+	backpack_container.name = "backpack_container"
+	player_cursor_controller.name = "player_cursor_controller"
+	add_child(player_equipment)
+	add_child(backpack_container)
+	add_child(player_cursor_controller)
+	player_cursor_controller.cursor_behavior_changed.connect(_on_cursor_behavior_changed)
+	player_cursor_controller.bind_equipment(player_equipment)
+
+
+func _setup_sun_cycle() -> void:
+	planet_sun_cycle.hour_changed.connect(_on_sun_cycle_hour_changed)
+	planet_sun_cycle.sun_room_changed.connect(_on_sun_cycle_sun_room_changed)
+	planet_sun_cycle.room_time_state_changed.connect(_on_room_time_state_changed)
+	planet_sun_cycle.configure(GameplayTuningClass.ROOM_COUNT, PlanetSunCycleClass.DEFAULT_HOUR_DURATION_SECONDS)
+
+
 func _process(delta: float) -> void:
 	var should_redraw: bool = false
+	if _update_background_fade(delta):
+		should_redraw = true
+	if planet_sun_cycle.advance(delta):
+		should_redraw = true
+		_refresh_godmode_ui()
+	var was_transition_locked: bool = room_transition_lock_time > 0.0
+	room_transition_lock_time = maxf(room_transition_lock_time - delta, 0.0)
+	if was_transition_locked and room_transition_lock_time <= 0.0:
+		print("player input unlocked; player movement enabled")
 
-	if not _is_console_open() and not has_won:
-		should_redraw = _update_player(delta)
+	if not _is_console_open() and not has_won and room_transition_lock_time <= 0.0:
+		if _update_player(delta):
+			should_redraw = true
 		if _update_item_drops(delta):
 			should_redraw = true
 		if _update_mining(delta):
 			should_redraw = true
+	elif room_transition_lock_time > 0.0:
+		player_velocity = Vector2.ZERO
 
 	if _update_hover_state():
 		should_redraw = true
 
-	if _try_transition_room():
+	if _check_void_fall():
+		should_redraw = true
+	elif _try_transition_room():
 		should_redraw = true
 
+	_update_player_follow_target()
+	_update_active_atlas_worker_grounding()
 	_apply_camera_tracking(delta)
 
 	if should_redraw:
@@ -116,6 +205,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if _is_console_open():
+		return
+
+	if event.is_action_pressed("interact"):
+		if _try_interact_with_backpack_world_item() or _try_interact_with_crash_ship():
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("drop_backpack"):
+		_drop_equipped_backpack()
+		queue_redraw()
+		get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventMouseButton and event.pressed:
@@ -132,7 +233,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if _is_pointer_over_debug_ui():
 				return
-			if _try_place_preview_cells():
+			if _should_show_place_cursor() and _try_place_preview_cells():
 				queue_redraw()
 			return
 
@@ -162,18 +263,22 @@ func _draw() -> void:
 	var view_origin: Vector2 = _get_view_origin_world()
 	var view_size: Vector2 = _get_viewport_world_size()
 
-	draw_rect(Rect2(view_origin, view_size), Color(0.07, 0.08, 0.1, 1.0), true)
+	draw_rect(Rect2(view_origin, view_size), _get_current_room_background_color(), true)
+	_draw_sun()
 	last_render_stats = world_renderer.draw_visible_chunks(self, view_origin, view_size)
 	_draw_room_bounds()
 	_draw_surface_props()
 	_draw_item_drops()
 	if debug_enabled:
-		_draw_mining_range()
+		if _should_show_mining_cone_cursor():
+			_draw_mining_range()
 		if not _has_hovered_drop():
 			_draw_hovered_center()
 	if not _has_hovered_drop():
-		_draw_mining_preview()
-		_draw_placement_preview()
+		if _should_show_mining_cone_cursor():
+			_draw_mining_preview()
+		elif _should_show_place_cursor():
+			_draw_placement_preview()
 
 	_draw_player()
 	_draw_carried_material_pile()
@@ -275,12 +380,19 @@ func _settle_player_to_floor(max_steps: int) -> void:
 func _update_mining(delta: float) -> bool:
 	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		block_mining_until_left_released = false
+		has_printed_missing_mining_tool_warning = false
 		return false
 
 	if block_mining_until_left_released:
 		return false
 
 	if _is_pointer_over_debug_ui():
+		return false
+
+	if not _can_mine_with_equipped_tool():
+		if not has_printed_missing_mining_tool_warning:
+			print("[Mining] Cannot mine: no mining tool equipped")
+			has_printed_missing_mining_tool_warning = true
 		return false
 
 	if not _is_mining_target_in_range():
@@ -461,6 +573,10 @@ func _draw_room_tooltip() -> void:
 		current_room_index + 1,
 		maxi(room_world_data_list.size(), 1)
 	]
+	tooltip_text += "  %s H%02d" % [
+		planet_sun_cycle.get_room_time_state_name(current_room_index),
+		planet_sun_cycle.get_current_hour()
+	]
 	var text_size: Vector2 = font.get_string_size(tooltip_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
 	var view_origin: Vector2 = _get_view_origin_world()
 	var view_size: Vector2 = _get_viewport_world_size()
@@ -486,6 +602,66 @@ func _draw_room_tooltip() -> void:
 	)
 
 
+func _get_current_room_background_color() -> Color:
+	return background_current_color
+
+
+func _update_background_fade(delta: float) -> bool:
+	if background_fade_elapsed >= BACKGROUND_FADE_DURATION:
+		return false
+
+	background_fade_elapsed = minf(background_fade_elapsed + delta, BACKGROUND_FADE_DURATION)
+	var fade_t: float = background_fade_elapsed / BACKGROUND_FADE_DURATION
+	background_current_color = background_start_color.lerp(background_target_color, fade_t)
+	if background_fade_elapsed >= BACKGROUND_FADE_DURATION:
+		background_current_color = background_target_color
+		print("[SunCycle] background fade completed: %s" % planet_sun_cycle.get_room_time_state_name(current_room_index))
+
+	return true
+
+
+func _start_background_fade(next_color: Color, reason: String) -> void:
+	if background_target_color == next_color and background_fade_elapsed < BACKGROUND_FADE_DURATION:
+		return
+
+	background_start_color = background_current_color
+	background_target_color = next_color
+	background_fade_elapsed = 0.0
+	print("[SunCycle] background fade started (%s): %s" % [reason, planet_sun_cycle.get_room_time_state_name(current_room_index)])
+	queue_redraw()
+
+
+func _set_background_color_immediate(next_color: Color) -> void:
+	background_start_color = next_color
+	background_current_color = next_color
+	background_target_color = next_color
+	background_fade_elapsed = BACKGROUND_FADE_DURATION
+
+
+func _draw_sun() -> void:
+	if not _is_sun_visual_in_current_room():
+		return
+
+	var sun_position: Vector2 = _get_sun_visual_world_position()
+
+	draw_circle(sun_position, SUN_VISUAL_RADIUS * 1.45, Color(1.0, 0.82, 0.18, 0.16))
+	draw_circle(sun_position, SUN_VISUAL_RADIUS, Color(1.0, 0.88, 0.16, 1.0))
+	draw_arc(sun_position, SUN_VISUAL_RADIUS + 2.0, 0.0, TAU, 48, Color(1.0, 0.98, 0.45, 0.95), 2.0)
+
+
+func _get_sun_visual_world_position() -> Vector2:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var surface_world_y: float = WorldUtilsClass.cell_to_world(Vector2i(0, _get_current_room_surface_cell_y())).y
+	return Vector2(
+		room_rect.position.x + (room_rect.size.x * 0.5),
+		maxf(room_rect.position.y + 42.0, surface_world_y - 118.0)
+	)
+
+
+func _is_sun_visual_in_current_room() -> bool:
+	return planet_sun_cycle.get_sun_room_index() == current_room_index
+
+
 func _draw_surface_props() -> void:
 	for prop_entry in _get_current_room_surface_props():
 		var prop_type: String = String(prop_entry.get("type", ""))
@@ -493,27 +669,6 @@ func _draw_surface_props() -> void:
 		var base_world: Vector2 = WorldUtilsClass.cell_to_world(base_cell)
 
 		match prop_type:
-			SURFACE_PROP_TREE:
-				var trunk_width_cells: int = int(prop_entry.get("trunk_width_cells", 1))
-				var trunk_height_cells: int = int(prop_entry.get("trunk_height_cells", 3))
-				var canopy_width_cells: int = int(prop_entry.get("canopy_width_cells", 3))
-				var canopy_height_cells: int = int(prop_entry.get("canopy_height_cells", 2))
-				var trunk_size: Vector2 = _get_world_size_from_cells(Vector2i(trunk_width_cells, trunk_height_cells))
-				var trunk_x: float = base_world.x + ((float(WorldConstantsClass.CELL_SIZE.x) * float(maxi(int(prop_entry.get("footprint_width_cells", trunk_width_cells)), 1))) - trunk_size.x) * 0.5
-				var trunk_rect: Rect2 = Rect2(
-					Vector2(trunk_x, base_world.y - trunk_size.y),
-					trunk_size
-				)
-				draw_rect(trunk_rect, GameplayTuningClass.TREE_TRUNK_COLOR, true)
-				var canopy_size: Vector2 = _get_world_size_from_cells(Vector2i(canopy_width_cells, canopy_height_cells))
-				var canopy_center: Vector2 = trunk_rect.position + Vector2(trunk_rect.size.x * 0.5, 0.0)
-				var canopy_rect: Rect2 = Rect2(
-					canopy_center + Vector2(-canopy_size.x * 0.5, -canopy_size.y * 0.92),
-					canopy_size
-				)
-				draw_circle(canopy_rect.get_center(), canopy_size.x * 0.32, GameplayTuningClass.TREE_LEAF_COLOR)
-				draw_circle(canopy_rect.get_center() + Vector2(-canopy_size.x * 0.18, canopy_size.y * 0.05), canopy_size.x * 0.24, GameplayTuningClass.TREE_LEAF_COLOR)
-				draw_circle(canopy_rect.get_center() + Vector2(canopy_size.x * 0.18, canopy_size.y * 0.02), canopy_size.x * 0.24, GameplayTuningClass.TREE_LEAF_COLOR)
 			SURFACE_PROP_BUSH:
 				var bush_width_cells: int = int(prop_entry.get("width_cells", 3))
 				var bush_height_cells: int = int(prop_entry.get("height_cells", 1))
@@ -877,6 +1032,8 @@ func _snap_player_to_ground() -> void:
 
 
 func _generate_rooms() -> void:
+	_clear_room_placeable_containers()
+	_clear_room_npc_containers()
 	room_world_data_list.clear()
 	room_drop_data_list.clear()
 	room_size_cells_list.clear()
@@ -885,15 +1042,29 @@ func _generate_rooms() -> void:
 	inventory_data.clear()
 	current_room_index = 0
 	has_won = false
+	print("Old direct tree placement disabled; using PlaceablePlacementService for surface trees")
 
-	for _room_index in range(GameplayTuningClass.ROOM_COUNT):
+	for room_index in range(GameplayTuningClass.ROOM_COUNT):
 		var room_size_cells: Vector2i = _generate_room_size_cells()
+		var room_world_data = _create_room_world_data(room_size_cells)
+		var room_placeable_container: Node2D = _create_room_placeable_container(room_index)
+		var room_npc_container: Node2D = _create_room_npc_container(room_index)
 		room_size_cells_list.append(room_size_cells)
-		room_world_data_list.append(_create_room_world_data(room_size_cells))
+		room_world_data_list.append(room_world_data)
 		room_drop_data_list.append(ItemDropDataClass.new())
-		var room_surface_props: Array = _generate_surface_props_for_room(room_size_cells)
+		room_placeable_container_list.append(room_placeable_container)
+		room_npc_container_list.append(room_npc_container)
+		var tree_placement_stats: Dictionary = _create_tree_placement_stats(room_index)
+		var room_surface_props: Array = _generate_surface_props_for_room(
+			room_size_cells,
+			room_world_data,
+			room_placeable_container,
+			tree_placement_stats
+		)
 		room_surface_props_list.append(room_surface_props)
 		room_protected_cells_list.append(_build_protected_cells_for_props(room_surface_props))
+		_create_atlas_worker_spawn_point_for_room(room_index, room_size_cells, room_npc_container)
+		_print_tree_placement_stats(tree_placement_stats)
 
 
 func _create_room_world_data(room_size_cells: Vector2i):
@@ -933,10 +1104,19 @@ func _set_current_room(room_index: int) -> void:
 	world_data = room_world_data_list[current_room_index]
 	item_drop_data = room_drop_data_list[current_room_index]
 	world_renderer.set_world_data(world_data)
+	_update_crash_ship_visibility()
+	_update_room_placeable_visibility()
+	_update_room_npc_visibility()
+	_print_world_boundary_debug()
+	print("[SunCycle] current player room time state: %s" % planet_sun_cycle.get_room_time_state_name(current_room_index))
+	_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "room changed")
 	_refresh_godmode_ui()
 
 
 func _get_room_spawn_position() -> Vector2:
+	if current_room_index == 0 and crash_ship != null and crash_ship.visible:
+		return crash_ship.get_spawn_position()
+
 	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
 	var room_rect: Rect2 = _get_room_world_rect()
 	var spawn_center_x: float = room_rect.position.x + (room_rect.size.x * 0.5)
@@ -944,7 +1124,125 @@ func _get_room_spawn_position() -> Vector2:
 	return Vector2(spawn_center_x - (player_size.x * 0.5), spawn_top_y)
 
 
+func _place_crash_ship_in_starting_room() -> void:
+	if crash_ship == null:
+		return
+
+	var room_rect: Rect2 = _get_room_world_rect()
+	var surface_world_y: float = WorldUtilsClass.cell_to_world(Vector2i(0, _get_current_room_surface_cell_y())).y
+	crash_ship.position = Vector2(room_rect.position.x + (room_rect.size.x * 0.5) - 96.0, surface_world_y - 4.0)
+	_update_crash_ship_visibility()
+
+
+func _update_crash_ship_visibility() -> void:
+	if crash_ship == null:
+		return
+
+	crash_ship.visible = current_room_index == 0
+
+
+func _try_interact_with_crash_ship() -> bool:
+	if current_room_index != 0:
+		return false
+	if crash_ship == null or not crash_ship.visible:
+		return false
+
+	var player_rect: Rect2 = Rect2(player_world_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
+	if not crash_ship.overlaps_world_rect(player_rect):
+		return false
+
+	crash_ship.interact()
+	return true
+
+
+func _spawn_initial_backpack_world_item() -> void:
+	if has_spawned_initial_backpack:
+		return
+
+	var spawn_position: Vector2 = _get_player_ground_world() + Vector2(42.0, 0.0)
+	_spawn_backpack_world_item(spawn_position, BasicBackpackItemDefinition)
+	has_spawned_initial_backpack = true
+
+
+func _try_interact_with_backpack_world_item() -> bool:
+	var player_rect: Rect2 = Rect2(player_world_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
+	for backpack_item in world_backpack_items:
+		if not is_instance_valid(backpack_item):
+			continue
+		if not backpack_item.overlaps_world_rect(player_rect):
+			continue
+
+		if player_equipment.get_equipped_backpack() != null:
+			print("[Backpack] Cannot equip backpack: backpack slot already occupied")
+			return true
+
+		var item_definition: ItemDefinition = backpack_item.item_definition
+		if _equip_backpack_item(item_definition, "[Backpack]"):
+			world_backpack_items.erase(backpack_item)
+			backpack_item.queue_free()
+		return true
+
+	return false
+
+
+func _equip_backpack_item(item_definition: ItemDefinition, log_prefix: String) -> bool:
+	if item_definition == null:
+		return false
+	if not item_definition.is_backpack or not item_definition.can_be_equipped:
+		return false
+	if player_equipment.get_equipped_backpack() != null:
+		print("%s Cannot equip backpack: backpack slot already occupied" % [log_prefix])
+		return false
+	if not player_equipment.equip_item(item_definition):
+		return false
+
+	if item_definition.backpack_definition is BackpackDefinition:
+		backpack_container.equip_backpack(item_definition.backpack_definition)
+	print("%s Backpack equipped: %s" % [log_prefix, item_definition.id])
+	_refresh_godmode_ui()
+	return true
+
+
+func _drop_equipped_backpack() -> void:
+	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
+	if equipped_backpack == null:
+		print("[Backpack] No backpack equipped")
+		return
+
+	player_equipment.unequip_item(EquipmentSlotClass.SlotType.BACKPACK)
+	# TODO: Transfer BackpackContainer contents into dropped world item data once item containers persist.
+	backpack_container.unequip_backpack()
+	_spawn_backpack_world_item(_get_backpack_drop_position(), equipped_backpack)
+	print("[Backpack] Backpack dropped")
+	_refresh_godmode_ui()
+
+
+func _spawn_backpack_world_item(world_position: Vector2, item_definition: ItemDefinition) -> BackpackWorldItem:
+	var scene: PackedScene = BackpackWorldItemScene
+	if item_definition != null and item_definition.world_scene != null:
+		scene = item_definition.world_scene
+
+	var backpack_item: BackpackWorldItem = scene.instantiate() as BackpackWorldItem
+	if backpack_item == null:
+		return null
+	backpack_item.setup(item_definition)
+	backpack_item.global_position = world_position
+	world_items.add_child(backpack_item)
+	world_backpack_items.append(backpack_item)
+	return backpack_item
+
+
+func _get_backpack_drop_position() -> Vector2:
+	var drop_offset_x: float = 28.0
+	if Input.is_action_pressed("move_left"):
+		drop_offset_x = -28.0
+	return _get_player_ground_world() + Vector2(drop_offset_x, 0.0)
+
+
 func _try_transition_room() -> bool:
+	if room_transition_lock_time > 0.0:
+		return false
+
 	var room_edge: String = _get_room_transition_edge()
 	if room_edge == ROOM_EDGE_NONE:
 		return false
@@ -973,11 +1271,16 @@ func _try_transition_room() -> bool:
 	if next_room_index == current_room_index:
 		return false
 
+	print("room transition started from room %d to room %d via %s" % [current_room_index, next_room_index, room_edge])
+	room_transition_lock_time = 0.12
+	print("player input locked; player movement disabled")
 	_set_current_room(next_room_index)
 	_place_player_at_room_entry(room_edge)
+	_reposition_active_atlas_workers_after_transition(room_edge)
 	hovered_drop_index = -1
 	has_inspected_cell = false
 	_update_hover_state()
+	print("transition completed in room %d at %s" % [current_room_index, player_world_position])
 	queue_redraw()
 	return true
 
@@ -1003,6 +1306,58 @@ func _place_player_at_room_entry(exit_edge: String) -> void:
 		_clear_room_entry_at_position(next_position)
 	player_world_position = next_position
 	player_velocity = Vector2.ZERO
+	_resolve_player_after_room_transition()
+
+
+func _resolve_player_after_room_transition() -> void:
+	var guard_limit: int = WorldConstantsClass.CELL_SIZE.y * 8
+	var guard_steps: int = 0
+
+	while _player_collides_at(player_world_position) and guard_steps < guard_limit:
+		player_world_position += Vector2.UP
+		guard_steps += 1
+
+	if guard_steps > 0:
+		print("player transition collision resolved upward by %d px" % guard_steps)
+	if _player_collides_at(player_world_position):
+		print("player transition collision still blocked after resolve guard")
+
+
+func _check_void_fall() -> bool:
+	if is_handling_void_fall:
+		return false
+
+	var room_rect: Rect2 = _get_room_world_rect()
+	var player_rect: Rect2 = Rect2(player_world_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
+	var void_margin: float = GameplayTuningClass.VOID_FALL_MARGIN_CELLS * WorldConstantsClass.CELL_SIZE.x
+	var void_depth: float = GameplayTuningClass.VOID_FALL_DEPTH_CELLS * WorldConstantsClass.CELL_SIZE.y
+	var fell_left: bool = _is_outer_left_edge() and player_rect.end.x < room_rect.position.x - void_margin
+	var fell_right: bool = _is_outer_right_edge() and player_rect.position.x > room_rect.end.x + void_margin
+	var fell_below: bool = player_rect.position.y > room_rect.end.y + void_depth
+
+	if not fell_left and not fell_right and not fell_below:
+		return false
+
+	print(
+		"Player fell off the planet edge at %s; void trigger left %.1f right %.1f below %.1f" % [
+			player_world_position,
+			room_rect.position.x - void_margin,
+			room_rect.end.x + void_margin,
+			room_rect.end.y + void_depth,
+		]
+	)
+	on_fell_into_void()
+	return true
+
+
+func on_fell_into_void() -> void:
+	is_handling_void_fall = true
+	player_velocity = Vector2.ZERO
+	player_world_position = _get_room_spawn_position()
+	_snap_player_to_ground()
+	_update_hover_state()
+	print("Player respawned from void at %s" % [player_world_position])
+	is_handling_void_fall = false
 
 
 func _get_room_transition_edge() -> String:
@@ -1026,6 +1381,41 @@ func _get_room_world_rect() -> Rect2:
 	return Rect2(Vector2.ZERO, _get_world_size_from_cells(_get_current_room_size_cells()))
 
 
+func _get_void_fall_rect() -> Rect2:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var void_margin: float = GameplayTuningClass.VOID_FALL_MARGIN_CELLS * WorldConstantsClass.CELL_SIZE.x
+	var void_depth: float = GameplayTuningClass.VOID_FALL_DEPTH_CELLS * WorldConstantsClass.CELL_SIZE.y
+	return Rect2(
+		Vector2(room_rect.position.x - void_margin, room_rect.position.y),
+		Vector2(room_rect.size.x + (void_margin * 2.0), room_rect.size.y + void_depth)
+	)
+
+
+func _is_outer_left_edge() -> bool:
+	return not _has_adjacent_room(ROOM_EDGE_LEFT)
+
+
+func _is_outer_right_edge() -> bool:
+	return not _has_adjacent_room(ROOM_EDGE_RIGHT)
+
+
+func _print_world_boundary_debug() -> void:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var void_rect: Rect2 = _get_void_fall_rect()
+	print(
+		"World horizontal bounds room %d: left %.1f right %.1f; outer left %s outer right %s; void trigger left %.1f right %.1f below %.1f" % [
+			current_room_index,
+			room_rect.position.x,
+			room_rect.end.x,
+			str(_is_outer_left_edge()),
+			str(_is_outer_right_edge()),
+			void_rect.position.x,
+			void_rect.end.x,
+			void_rect.end.y,
+		]
+	)
+
+
 func _is_cell_inside_room(cell_position: Vector2i) -> bool:
 	var room_size_cells: Vector2i = _get_current_room_size_cells()
 	return cell_position.x >= 0 and cell_position.y >= 0 and cell_position.x < room_size_cells.x and cell_position.y < room_size_cells.y
@@ -1034,10 +1424,31 @@ func _is_cell_inside_room(cell_position: Vector2i) -> bool:
 func _clamp_player_to_room(next_position: Vector2) -> Vector2:
 	var room_rect: Rect2 = _get_room_world_rect()
 	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	var min_x: float = -INF
+	var max_x: float = INF
+	var max_y: float = room_rect.end.y - player_size.y
+	if not _is_outer_left_edge():
+		min_x = room_rect.position.x
+	if not _is_outer_right_edge():
+		max_x = room_rect.end.x - player_size.x
+	if _is_position_beyond_outer_horizontal_edge(next_position):
+		max_y = INF
+
 	return Vector2(
-		clampf(next_position.x, room_rect.position.x, room_rect.end.x - player_size.x),
-		clampf(next_position.y, room_rect.position.y, room_rect.end.y - player_size.y)
+		clampf(next_position.x, min_x, max_x),
+		clampf(next_position.y, room_rect.position.y, max_y)
 	)
+
+
+func _is_position_beyond_outer_horizontal_edge(position: Vector2) -> bool:
+	var room_rect: Rect2 = _get_room_world_rect()
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	if _is_outer_left_edge() and position.x + player_size.x < room_rect.position.x:
+		return true
+	if _is_outer_right_edge() and position.x > room_rect.end.x:
+		return true
+
+	return false
 
 
 func _get_view_origin_world() -> Vector2:
@@ -1049,6 +1460,11 @@ func _get_camera_center_world() -> Vector2:
 	var half_view_size: Vector2 = _get_viewport_world_size() * 0.5
 	var min_center: Vector2 = room_rect.position + half_view_size
 	var max_center: Vector2 = room_rect.end - half_view_size
+	var void_camera_margin: float = GameplayTuningClass.VOID_CAMERA_MARGIN_CELLS * WorldConstantsClass.CELL_SIZE.x
+	if _is_outer_left_edge():
+		min_center.x -= void_camera_margin
+	if _is_outer_right_edge():
+		max_center.x += void_camera_margin
 	var player_center: Vector2 = _get_player_center_world()
 
 	return Vector2(
@@ -1071,6 +1487,198 @@ func _get_target_internal_resolution() -> Vector2i:
 	return Vector2i(
 		int(round(target_world_width)),
 		int(round(target_world_height))
+	)
+
+
+func _clear_room_placeable_containers() -> void:
+	room_placeable_container_list.clear()
+	if placeable_objects == null:
+		return
+
+	for child in placeable_objects.get_children():
+		child.queue_free()
+
+
+func _create_room_placeable_container(room_index: int) -> Node2D:
+	var room_placeable_container: Node2D = Node2D.new()
+	room_placeable_container.name = "room_%d_placeables" % room_index
+	room_placeable_container.visible = room_index == current_room_index
+	placeable_objects.add_child(room_placeable_container)
+	return room_placeable_container
+
+
+func _update_room_placeable_visibility() -> void:
+	for room_index in range(room_placeable_container_list.size()):
+		var room_placeable_container: Node2D = room_placeable_container_list[room_index]
+		if room_placeable_container != null:
+			room_placeable_container.visible = room_index == current_room_index
+
+
+func _clear_room_npc_containers() -> void:
+	room_npc_container_list.clear()
+	if npc_objects == null:
+		return
+
+	for child in npc_objects.get_children():
+		if child == persistent_followers:
+			continue
+		child.queue_free()
+
+
+func _create_room_npc_container(room_index: int) -> Node2D:
+	var room_npc_container: Node2D = Node2D.new()
+	room_npc_container.name = "room_%d_npcs" % room_index
+	room_npc_container.visible = room_index == current_room_index
+	room_npc_container.process_mode = Node.PROCESS_MODE_INHERIT if room_index == current_room_index else Node.PROCESS_MODE_DISABLED
+	npc_objects.add_child(room_npc_container)
+	return room_npc_container
+
+
+func _update_room_npc_visibility() -> void:
+	for room_index in range(room_npc_container_list.size()):
+		var room_npc_container: Node2D = room_npc_container_list[room_index]
+		if room_npc_container != null:
+			var is_active_room: bool = room_index == current_room_index
+			room_npc_container.visible = is_active_room
+			room_npc_container.process_mode = Node.PROCESS_MODE_INHERIT if is_active_room else Node.PROCESS_MODE_DISABLED
+
+
+func _create_atlas_worker_spawn_point_for_room(room_index: int, room_size_cells: Vector2i, room_npc_container: Node2D) -> void:
+	if AtlasWorkerSpawnPointScene == null:
+		return
+	if room_npc_container == null:
+		return
+
+	var spawn_point = AtlasWorkerSpawnPointScene.instantiate()
+	if not spawn_point is AtlasWorkerSpawnPoint:
+		return
+
+	var atlas_spawn_point: AtlasWorkerSpawnPoint = spawn_point
+	var surface_cell_y: int = _get_surface_cell_y_for_room(room_size_cells)
+	var spawn_cell: Vector2i = Vector2i(
+		clampi(room_size_cells.x / 2 + (room_index * 9) - 9, GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS, room_size_cells.x - GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS),
+		surface_cell_y - 6
+	)
+	atlas_spawn_point.global_position = WorldUtilsClass.cell_to_world(spawn_cell)
+	atlas_spawn_point.set_player_target(player_follow_target)
+	atlas_spawn_point.group_activated.connect(_on_atlas_worker_group_activated)
+	room_npc_container.add_child(atlas_spawn_point)
+	print("room %d received AtlasWorker spawn point at %s" % [room_index, atlas_spawn_point.global_position])
+
+
+func _on_atlas_worker_group_activated(_spawn_point, workers: Array) -> void:
+	var added_count: int = 0
+	var overflow_count: int = 0
+
+	for worker in workers:
+		if worker == null or not worker is AtlasWorker:
+			continue
+		var atlas_worker: AtlasWorker = worker
+
+		if active_atlas_workers.size() >= MAX_ATLAS_WORKER_FOLLOWERS:
+			atlas_worker.deactivate_group()
+			overflow_count += 1
+			continue
+
+		atlas_worker.reparent(persistent_followers, true)
+		active_atlas_workers.append(atlas_worker)
+		added_count += 1
+
+	if added_count > 0:
+		_assign_active_atlas_worker_follow_chain()
+
+	print(
+		"AtlasWorker followers updated: added %d, total %d/%d, non-followers left in place %d" % [
+			added_count,
+			active_atlas_workers.size(),
+			MAX_ATLAS_WORKER_FOLLOWERS,
+			overflow_count,
+		]
+	)
+
+
+func _assign_active_atlas_worker_follow_chain() -> void:
+	for index in range(active_atlas_workers.size()):
+		var atlas_worker: AtlasWorker = active_atlas_workers[index]
+		if atlas_worker == null:
+			continue
+		if index == 0:
+			atlas_worker.follow_target = player_follow_target
+		else:
+			atlas_worker.follow_target = active_atlas_workers[index - 1]
+		atlas_worker.activation_target = player_follow_target
+		atlas_worker.activate_group()
+
+	print("persistent AtlasWorker follow chain assigned")
+
+
+func _reposition_active_atlas_workers_after_transition(exit_edge: String) -> void:
+	if active_atlas_workers.is_empty():
+		return
+
+	var direction_sign: float = 1.0
+	if exit_edge == ROOM_EDGE_RIGHT:
+		direction_sign = -1.0
+
+	var player_ground_position: Vector2 = _get_player_ground_world()
+	for index in range(active_atlas_workers.size()):
+		var atlas_worker: AtlasWorker = active_atlas_workers[index]
+		if atlas_worker == null:
+			continue
+		atlas_worker.global_position = player_ground_position + Vector2(direction_sign * float(26 + (index * 18)), 0.0)
+		atlas_worker.velocity = Vector2.ZERO
+
+	_assign_active_atlas_worker_follow_chain()
+	print("AtlasWorkers repositioned after room transition")
+
+
+func _update_active_atlas_worker_grounding() -> void:
+	for atlas_worker in active_atlas_workers:
+		if atlas_worker == null:
+			continue
+		if atlas_worker.global_position.y > _get_player_ground_world().y + WorldConstantsClass.CELL_SIZE.y:
+			atlas_worker.global_position.y = _get_player_ground_world().y
+
+
+func _create_tree_placement_stats(room_index: int) -> Dictionary:
+	return {
+		"room_index": room_index,
+		"valid_surface_positions": 0,
+		"placed_count": 0,
+		"failure_count": 0,
+	}
+
+
+func _try_place_surface_tree(placement_service, surface_cell: Vector2i, tree_placement_stats: Dictionary) -> void:
+	var placement_tile: Vector2i = Vector2i(
+		surface_cell.x,
+		surface_cell.y - PrototypeTreeDefinition.footprint_tiles.y
+	)
+
+	if placement_service.can_place(PrototypeTreeDefinition, placement_tile, PrototypeTreeDefinition.placement_mode):
+		tree_placement_stats["valid_surface_positions"] = int(tree_placement_stats.get("valid_surface_positions", 0)) + 1
+	else:
+		tree_placement_stats["failure_count"] = int(tree_placement_stats.get("failure_count", 0)) + 1
+		print("Tree placement failed at surface cell %s: invalid FLOOR position" % [surface_cell])
+		return
+
+	var placed_tree: Node = placement_service.place_object(PrototypeTreeDefinition, placement_tile, PrototypeTreeDefinition.placement_mode)
+	if placed_tree == null:
+		tree_placement_stats["failure_count"] = int(tree_placement_stats.get("failure_count", 0)) + 1
+		print("Tree placement failed at surface cell %s: PlaceablePlacementService returned null" % [surface_cell])
+		return
+
+	tree_placement_stats["placed_count"] = int(tree_placement_stats.get("placed_count", 0)) + 1
+
+
+func _print_tree_placement_stats(tree_placement_stats: Dictionary) -> void:
+	print(
+		"Room %d tree placeables: valid surface positions %d, placed %d, failures %d" % [
+			int(tree_placement_stats.get("room_index", 0)),
+			int(tree_placement_stats.get("valid_surface_positions", 0)),
+			int(tree_placement_stats.get("placed_count", 0)),
+			int(tree_placement_stats.get("failure_count", 0)),
+		]
 	)
 
 
@@ -1189,8 +1797,9 @@ func _clear_room_entry_at_position(entry_position: Vector2) -> void:
 				world_data.remove_damage_progress(cell_position)
 
 
-func _generate_surface_props_for_room(room_size_cells: Vector2i) -> Array:
+func _generate_surface_props_for_room(room_size_cells: Vector2i, room_world_data, room_placeable_container: Node2D, tree_placement_stats: Dictionary) -> Array:
 	var props: Array = []
+	var tree_placement_service = PlaceablePlacementServiceClass.new(room_world_data, room_placeable_container)
 	var surface_cell_y: int = _get_surface_cell_y_for_room(room_size_cells)
 	var cell_x: int = GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS
 	var max_cell_x: int = room_size_cells.x - GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS
@@ -1203,17 +1812,17 @@ func _generate_surface_props_for_room(room_size_cells: Vector2i) -> Array:
 		var prop_roll: float = room_rng.randf()
 		var prop_entry: Dictionary = {}
 		if prop_roll < 0.58:
-			var tree_scale: float = GameplayTuningClass.TREE_SIZE_MULTIPLIER
-			var footprint_width_cells: int = maxi(int(round(float(room_rng.randi_range(2, 4)) * tree_scale)), 2)
-			prop_entry = {
-				"type": SURFACE_PROP_TREE,
-				"base_cell": Vector2i(cell_x, surface_cell_y),
-				"footprint_width_cells": footprint_width_cells,
-				"trunk_width_cells": maxi(int(round(float(room_rng.randi_range(1, 2)) * tree_scale)), 1),
-				"trunk_height_cells": maxi(int(round(float(room_rng.randi_range(3, 6)) * tree_scale)), 3),
-				"canopy_width_cells": maxi(int(round(float(room_rng.randi_range(3, 6)) * tree_scale)), 3),
-				"canopy_height_cells": maxi(int(round(float(room_rng.randi_range(2, 4)) * tree_scale)), 2),
-			}
+			var tree_footprint_width: int = PrototypeTreeDefinition.footprint_tiles.x
+			if cell_x + tree_footprint_width >= max_cell_x:
+				break
+
+			_try_place_surface_tree(
+				tree_placement_service,
+				Vector2i(cell_x, surface_cell_y),
+				tree_placement_stats
+			)
+			cell_x += tree_footprint_width + GameplayTuningClass.SURFACE_PROP_SPACING_MIN_CELLS + room_rng.randi_range(0, 2)
+			continue
 		elif prop_roll < 0.82:
 			prop_entry = {
 				"type": SURFACE_PROP_BUSH,
@@ -1354,8 +1963,45 @@ func _is_mining_target_in_range() -> bool:
 	return player_center_world.distance_to(target_center_world) <= GameplayTuningClass.MINING_RANGE_CELLS * WorldConstantsClass.CELL_SIZE.x
 
 
+func _should_show_mining_cone_cursor() -> bool:
+	return player_cursor_controller.get_current_cursor_behavior() == CursorBehaviorDefinitionClass.CursorBehavior.MINE_CONE
+
+
+func _should_show_place_cursor() -> bool:
+	return player_cursor_controller.get_current_cursor_behavior() == CursorBehaviorDefinitionClass.CursorBehavior.PLACE
+
+
+func _can_mine_with_equipped_tool() -> bool:
+	if not _should_show_mining_cone_cursor():
+		return false
+
+	var equipped_tool: ItemDefinition = player_equipment.get_equipped_tool()
+	if equipped_tool == null:
+		return false
+	if equipped_tool.item_category != ItemTypesClass.ItemCategory.EQUIPMENT:
+		return false
+	if not equipped_tool.is_tool:
+		return false
+	if equipped_tool.cursor_behavior == null:
+		return false
+
+	return equipped_tool.cursor_behavior.behavior == CursorBehaviorDefinitionClass.CursorBehavior.MINE_CONE
+
+
 func _get_player_center_world() -> Vector2:
 	return player_world_position + (_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS) * 0.5)
+
+
+func _get_player_ground_world() -> Vector2:
+	var player_size: Vector2 = _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS)
+	return player_world_position + Vector2(player_size.x * 0.5, player_size.y)
+
+
+func _update_player_follow_target() -> void:
+	if player_follow_target == null:
+		return
+
+	player_follow_target.global_position = _get_player_ground_world()
 
 
 func _get_cell_center_world(cell_position: Vector2i) -> Vector2:
@@ -1550,6 +2196,46 @@ func _set_inventory_weight_capacity(weight_capacity: float) -> void:
 	queue_redraw()
 
 
+func _on_cursor_behavior_changed(cursor_behavior: int) -> void:
+	match cursor_behavior:
+		CursorBehaviorDefinitionClass.CursorBehavior.MINE_CONE:
+			print("[Cursor] Mining cone cursor active")
+		CursorBehaviorDefinitionClass.CursorBehavior.PLACE:
+			print("[Cursor] Placement cursor active")
+		_:
+			print("[Cursor] Default cursor active")
+
+	_refresh_godmode_ui()
+	queue_redraw()
+
+
+func _on_sun_cycle_hour_changed(new_hour: int) -> void:
+	print("[SunCycle] hour changed: %d" % new_hour)
+
+
+func _on_sun_cycle_sun_room_changed(new_room_index: int) -> void:
+	print(
+		"[SunCycle] sun room changed: %d visual position %s player room %d" % [
+			new_room_index,
+			_get_sun_visual_world_position() if _is_sun_visual_in_current_room() else "offscreen",
+			current_room_index,
+		]
+	)
+
+
+func _on_room_time_state_changed(room_index: int, old_state: int, new_state: int) -> void:
+	print(
+		"[SunCycle] room %d time state changed: %s -> %s" % [
+			room_index,
+			planet_sun_cycle.get_time_state_name(old_state),
+			planet_sun_cycle.get_time_state_name(new_state),
+		]
+	)
+	if room_index == current_room_index:
+		print("[SunCycle] player room time state: %s" % planet_sun_cycle.get_time_state_name(new_state))
+		_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "room time state changed")
+
+
 func _toggle_console() -> void:
 	_set_console_visible(not _is_console_open())
 	queue_redraw()
@@ -1613,6 +2299,48 @@ func _refresh_godmode_ui() -> void:
 		_get_shape_name(debug_settings.mining_shape),
 		debug_settings.mining_radius
 	]
+	equipment_status_value.text = "Tool %s  Bag %s  Cursor %s" % [
+		_get_equipped_tool_label(),
+		_get_equipped_backpack_label(),
+		player_cursor_controller.get_current_cursor_behavior_name()
+	]
+	backpack_contents_value.text = "Bag: %s" % _get_backpack_contents_summary()
+	sun_cycle_status_value.text = "Time H%02d  Sun R%d  Room %s" % [
+		planet_sun_cycle.get_current_hour(),
+		planet_sun_cycle.get_sun_room_index() + 1,
+		planet_sun_cycle.get_room_time_state_name(current_room_index)
+	]
+
+
+func _get_equipped_tool_label() -> String:
+	var equipped_tool: ItemDefinition = player_equipment.get_equipped_tool()
+	if equipped_tool == null:
+		return "empty"
+
+	return String(equipped_tool.id)
+
+
+func _get_equipped_backpack_label() -> String:
+	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
+	if equipped_backpack == null:
+		return "empty"
+
+	return String(equipped_backpack.id)
+
+
+func _get_backpack_contents_summary() -> String:
+	if backpack_container.backpack_definition == null:
+		return "none"
+	if backpack_container.item_stacks.is_empty():
+		return "empty"
+
+	var stack_labels: PackedStringArray = PackedStringArray()
+	for item_stack in backpack_container.item_stacks:
+		if item_stack.item_definition == null:
+			continue
+		stack_labels.append("%s x%d" % [item_stack.item_definition.id, item_stack.amount])
+
+	return ", ".join(stack_labels)
 
 
 func _on_console_input_text_submitted(new_text: String) -> void:
@@ -1709,7 +2437,93 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 		console_input.text = ""
 		return
 
+	if _handle_godmode_item_command(command):
+		_refresh_godmode_ui()
+		console_input.text = ""
+		queue_redraw()
+		return
+
 	console_input.text = ""
+
+
+func _handle_godmode_item_command(command: String) -> bool:
+	match command:
+		"equip_mining_tool", "equip basic mining tool":
+			player_equipment.equip_item(BasicMiningToolDefinition)
+			print("[GodModeItems] Equipped mining tool: %s" % [BasicMiningToolDefinition.id])
+			return true
+		"unequip_mining_tool", "unequip mining tool":
+			player_equipment.unequip_item(EquipmentSlotClass.SlotType.PRIMARY_TOOL)
+			print("[GodModeItems] Unequipped mining tool")
+			return true
+		"equip_backpack", "equip basic backpack":
+			_equip_backpack_item(BasicBackpackItemDefinition, "[GodModeItems]")
+			return true
+		"unequip_backpack", "unequip backpack":
+			player_equipment.unequip_item(EquipmentSlotClass.SlotType.BACKPACK)
+			backpack_container.unequip_backpack()
+			print("[GodModeItems] Unequipped backpack")
+			return true
+		"add_stone", "add 10 stone":
+			_godmode_add_backpack_stack(StoneItemDefinition, 10)
+			return true
+		"add_scrap", "add 5 scrap":
+			_godmode_add_backpack_stack(ScrapItemDefinition, 5)
+			return true
+		"print_equipment", "print equipment state":
+			_print_equipment_state()
+			return true
+		"print_backpack", "print backpack contents":
+			_print_backpack_contents()
+			return true
+		"print_cursor", "print current cursor behavior":
+			print("[Cursor] Cursor behavior: %s" % [player_cursor_controller.get_current_cursor_behavior_name()])
+			return true
+		"advance_hour", "advance one hour":
+			planet_sun_cycle.advance_one_hour()
+			_refresh_godmode_ui()
+			queue_redraw()
+			return true
+		"reset_sun_cycle", "reset sun cycle":
+			planet_sun_cycle.reset_to_midnight()
+			_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "sun cycle reset")
+			_refresh_godmode_ui()
+			queue_redraw()
+			return true
+		_:
+			return false
+
+
+func _godmode_add_backpack_stack(item_definition: ItemDefinition, amount: int) -> void:
+	if backpack_container.backpack_definition == null:
+		print("[GodModeItems] Cannot add stack: no backpack equipped")
+		return
+	if backpack_container.add_placeholder_stack(item_definition, amount):
+		print("[GodModeItems] Added stack: %s x%d" % [item_definition.id, amount])
+	_refresh_godmode_ui()
+
+
+func _print_equipment_state() -> void:
+	var equipped_tool: ItemDefinition = player_equipment.get_equipped_tool()
+	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
+	print("[GodModeItems] Equipment state:")
+	print("  tool: %s" % [equipped_tool.id if equipped_tool != null else "empty"])
+	print("  backpack: %s" % [equipped_backpack.id if equipped_backpack != null else "empty"])
+	print("  cursor: %s" % [player_cursor_controller.get_current_cursor_behavior_name()])
+
+
+func _print_backpack_contents() -> void:
+	if backpack_container.backpack_definition == null:
+		print("[GodModeItems] Backpack contents: no backpack equipped")
+		return
+
+	print("[GodModeItems] Backpack contents:")
+	if backpack_container.item_stacks.is_empty():
+		print("  empty")
+		return
+
+	for item_stack in backpack_container.item_stacks:
+		print("  %s x%d" % [item_stack.item_definition.id, item_stack.amount])
 
 
 func _on_mining_power_slider_value_changed(value: float) -> void:
@@ -1734,3 +2548,41 @@ func _on_circle_button_pressed() -> void:
 	debug_settings.set_mining_shape(WorldConstantsClass.ToolShape.CIRCLE)
 	_refresh_godmode_ui()
 	queue_redraw()
+
+
+func _run_godmode_item_ui_command(command: String) -> void:
+	_handle_godmode_item_command(command)
+	_refresh_godmode_ui()
+	queue_redraw()
+
+
+func _on_equip_tool_button_pressed() -> void:
+	_run_godmode_item_ui_command("equip_mining_tool")
+
+
+func _on_unequip_tool_button_pressed() -> void:
+	_run_godmode_item_ui_command("unequip_mining_tool")
+
+
+func _on_equip_backpack_button_pressed() -> void:
+	_run_godmode_item_ui_command("equip_backpack")
+
+
+func _on_unequip_backpack_button_pressed() -> void:
+	_run_godmode_item_ui_command("unequip_backpack")
+
+
+func _on_add_stone_button_pressed() -> void:
+	_run_godmode_item_ui_command("add_stone")
+
+
+func _on_add_scrap_button_pressed() -> void:
+	_run_godmode_item_ui_command("add_scrap")
+
+
+func _on_print_equipment_button_pressed() -> void:
+	_run_godmode_item_ui_command("print_equipment")
+
+
+func _on_print_backpack_button_pressed() -> void:
+	_run_godmode_item_ui_command("print_backpack")

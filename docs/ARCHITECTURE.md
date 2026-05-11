@@ -1,0 +1,42 @@
+## Placeable Objects
+
+Non-material scene objects use the prototype placeables system:
+
+- `systems/placeables/placeable_object_definition.gd` defines data-driven placement rules.
+- `systems/placeables/placeable_placement_service.gd` validates tile support and spawns objects.
+- `entity/placeable/placeable_object.tscn` is the generic base scene for simple props.
+- `resources/placeables/` contains editable example definitions.
+
+The service is intentionally not an autoload. Create it with the current `world_data` and a parent `Node` when world generation, tests, or future editor tools need to place props.
+
+## NPCs
+
+Prototype NPC scenes live under `entity/npc/`.
+
+- `entity/npc/npc_base.gd` is the tiny shared foundation for moving NPCs.
+- `entity/npc/atlas_worker/` contains the AtlasWorker creature and its spawn point.
+- Room generation owns per-room NPC containers and enables processing only for the active room.
+
+## Items, Equipment, And Backpacks
+
+The item foundation is data-driven and separate from the current material prototype inventory.
+
+- `systems/items/item_definition.gd` defines broad item data, categories, capabilities, and specialization flags.
+- `systems/equipment/player_equipment.gd` tracks equipped tools, weapons, and backpacks.
+- `systems/backpack/backpack_definition.gd` and `backpack_container.gd` provide the physical backpack foundation.
+- `systems/cursor/player_cursor_controller.gd` maps equipped item cursor behavior to debug state.
+- Example editable item resources live under `resources/items/`, `resources/equipment/`, `resources/backpacks/`, and `resources/cursor/`.
+
+Placeable item definitions reference existing `PlaceableObjectDefinition` resources; placement validation remains owned by `systems/placeables/`.
+
+## Room Time And World Influences
+
+Room-local day/night state is owned by the lightweight sun-cycle system:
+
+- `systems/time/cycle_influence.gd` is reusable runtime data for moving world influence objects such as the sun, moon, events, or storms.
+- `systems/time/planet_sun_cycle.gd` tracks in-game time, sun room movement, and cached `DAY` / `DUSK` / `NIGHT` / `DAWN` states.
+- `world_scene.gd` queries the cycle for the current room background color and debug readout.
+
+The cycle updates room state caches only when the hour changes, not every frame. Future gameplay systems should query `PlanetSunCycle` instead of hardcoding day/night rules.
+
+The sun starts at 12 AM in zero-based room index `12` for the 24-room prototype. The sun moves left to right by increasing room index. The 8-room `DAY` band is centered on the sun using offsets `-3..+4`; rooms ahead of the moving sun become `DAWN`, and rooms behind it become `DUSK`.

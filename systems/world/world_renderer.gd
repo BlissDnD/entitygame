@@ -44,14 +44,23 @@ func draw_visible_chunks(canvas_item: CanvasItem, view_origin: Vector2, view_siz
 
 	for chunk_position in visible_chunk_positions:
 		var chunk_data = world_data.get_chunk(chunk_position)
-		if chunk_data == null:
-			continue
+		var has_render_content: bool = world_data.chunk_has_render_content(chunk_position)
 		var cache_entry: Dictionary = {}
 		if chunk_cache.has(chunk_position):
 			cache_entry = chunk_cache[chunk_position]
 
-		if chunk_data.dirty or cache_entry.is_empty() or world_data.dirty_chunk_system.is_chunk_dirty(chunk_position):
-			cache_entry = chunk_renderer.rebuild_chunk_texture(world_data, chunk_data)
+		if not has_render_content:
+			if chunk_cache.has(chunk_position):
+				chunk_cache.erase(chunk_position)
+			world_data.clear_chunk_dirty(chunk_position)
+			continue
+
+		var chunk_is_dirty: bool = world_data.dirty_chunk_system.is_chunk_dirty(chunk_position)
+		if chunk_data != null and chunk_data.dirty:
+			chunk_is_dirty = true
+
+		if chunk_is_dirty or cache_entry.is_empty():
+			cache_entry = chunk_renderer.rebuild_chunk_texture(world_data, chunk_position, chunk_data)
 			chunk_cache[chunk_position] = cache_entry
 			world_data.clear_chunk_dirty(chunk_position)
 			rebuild_count += 1
@@ -85,7 +94,7 @@ func draw_visible_chunks(canvas_item: CanvasItem, view_origin: Vector2, view_siz
 func get_visible_chunk_positions(view_rect: Rect2) -> Array[Vector2i]:
 	var min_chunk: Vector2i = WorldUtilsClass.world_to_chunk(view_rect.position) - Vector2i(render_margin_chunks, render_margin_chunks)
 	var max_chunk: Vector2i = WorldUtilsClass.world_to_chunk(view_rect.end - Vector2.ONE) + Vector2i(render_margin_chunks, render_margin_chunks)
-	return world_data.get_existing_chunk_positions_in_rect(min_chunk, max_chunk)
+	return world_data.get_render_chunk_positions_in_rect(min_chunk, max_chunk)
 
 
 func get_profiling_info() -> Dictionary:

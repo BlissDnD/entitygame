@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CursorBehaviorDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://systems/cursor/cursor_behavior_definition.gd" id="1_cursor_behavior"]
+
+[resource]
+script = ExtResource("1_cursor_behavior")
+id = &"scan"
+display_name = "Scan"
+behavior = 6
