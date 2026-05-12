@@ -1,0 +1,187 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/debug/godmode_panel.gd" id="1_godmode_panel"]
+
+[node name="godmode_panel" type="Panel"]
+visible = false
+offset_left = 16.0
+offset_top = 80.0
+offset_right = 336.0
+offset_bottom = 412.0
+script = ExtResource("1_godmode_panel")
+
+[node name="mining_power_slider" type="HSlider" parent="."]
+offset_left = 12.0
+offset_top = 16.0
+offset_right = 220.0
+offset_bottom = 32.0
+min_value = 1.0
+max_value = 100.0
+step = 1.0
+value = 10.0
+
+[node name="mining_power_value" type="Label" parent="."]
+offset_left = 232.0
+offset_top = 14.0
+offset_right = 308.0
+offset_bottom = 34.0
+text = "Mining 10"
+
+[node name="mining_radius_slider" type="HSlider" parent="."]
+offset_left = 12.0
+offset_top = 52.0
+offset_right = 220.0
+offset_bottom = 68.0
+min_value = 1.0
+max_value = 10.0
+step = 1.0
+value = 2.0
+
+[node name="mining_radius_value" type="Label" parent="."]
+offset_left = 232.0
+offset_top = 50.0
+offset_right = 308.0
+offset_bottom = 70.0
+text = "Size 2"
+
+[node name="square_button" type="Button" parent="."]
+toggle_mode = true
+offset_left = 12.0
+offset_top = 92.0
+offset_right = 104.0
+offset_bottom = 124.0
+text = "Square"
+
+[node name="circle_button" type="Button" parent="."]
+toggle_mode = true
+offset_left = 112.0
+offset_top = 92.0
+offset_right = 204.0
+offset_bottom = 124.0
+text = "Circle"
+
+[node name="selected_material_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 136.0
+offset_right = 308.0
+offset_bottom = 156.0
+text = "Inventory selected DIRT"
+
+[node name="inventory_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 156.0
+offset_right = 308.0
+offset_bottom = 176.0
+text = "Inventory 0/100"
+
+[node name="material_counts_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 176.0
+offset_right = 308.0
+offset_bottom = 196.0
+text = "DIRT 0 STONE 0"
+
+[node name="placement_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 196.0
+offset_right = 308.0
+offset_bottom = 216.0
+text = "Placement square size 2"
+
+[node name="equipment_status_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 220.0
+offset_right = 308.0
+offset_bottom = 240.0
+text = "Equipment: Tool empty  Bag empty"
+
+[node name="equip_tool_button" type="Button" parent="."]
+offset_left = 12.0
+offset_top = 244.0
+offset_right = 80.0
+offset_bottom = 272.0
+text = "Tool"
+
+[node name="unequip_tool_button" type="Button" parent="."]
+offset_left = 84.0
+offset_top = 244.0
+offset_right = 152.0
+offset_bottom = 272.0
+text = "No Tool"
+
+[node name="equip_backpack_button" type="Button" parent="."]
+offset_left = 156.0
+offset_top = 244.0
+offset_right = 224.0
+offset_bottom = 272.0
+text = "Bag"
+
+[node name="unequip_backpack_button" type="Button" parent="."]
+offset_left = 228.0
+offset_top = 244.0
+offset_right = 308.0
+offset_bottom = 272.0
+text = "No Bag"
+
+[node name="add_stone_button" type="Button" parent="."]
+offset_left = 12.0
+offset_top = 278.0
+offset_right = 80.0
+offset_bottom = 306.0
+text = "+Stone"
+
+[node name="add_scrap_button" type="Button" parent="."]
+offset_left = 84.0
+offset_top = 278.0
+offset_right = 152.0
+offset_bottom = 306.0
+text = "+Scrap"
+
+[node name="print_equipment_button" type="Button" parent="."]
+offset_left = 156.0
+offset_top = 278.0
+offset_right = 224.0
+offset_bottom = 306.0
+text = "Print Eq"
+
+[node name="print_backpack_button" type="Button" parent="."]
+offset_left = 228.0
+offset_top = 278.0
+offset_right = 308.0
+offset_bottom = 306.0
+text = "Print Bag"
+
+[node name="backpack_contents_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 312.0
+offset_right = 308.0
+offset_bottom = 348.0
+text = "Backpack: none"
+autowrap_mode = 3
+
+[node name="sun_cycle_status_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 352.0
+offset_right = 308.0
+offset_bottom = 372.0
+text = "Sun Cycle: H00  Sun R1"
+
+[node name="world_laws_status_value" type="Label" parent="."]
+offset_left = 12.0
+offset_top = 376.0
+offset_right = 308.0
+offset_bottom = 396.0
+text = "World Laws: not implemented yet"
+
+[connection signal="value_changed" from="mining_power_slider" to="." method="_on_mining_power_slider_value_changed"]
+[connection signal="value_changed" from="mining_radius_slider" to="." method="_on_mining_radius_slider_value_changed"]
+[connection signal="pressed" from="square_button" to="." method="_on_square_button_pressed"]
+[connection signal="pressed" from="circle_button" to="." method="_on_circle_button_pressed"]
+[connection signal="pressed" from="equip_tool_button" to="." method="_on_equip_tool_button_pressed"]
+[connection signal="pressed" from="unequip_tool_button" to="." method="_on_unequip_tool_button_pressed"]
+[connection signal="pressed" from="equip_backpack_button" to="." method="_on_equip_backpack_button_pressed"]
+[connection signal="pressed" from="unequip_backpack_button" to="." method="_on_unequip_backpack_button_pressed"]
+[connection signal="pressed" from="add_stone_button" to="." method="_on_add_stone_button_pressed"]
+[connection signal="pressed" from="add_scrap_button" to="." method="_on_add_scrap_button_pressed"]
+[connection signal="pressed" from="print_equipment_button" to="." method="_on_print_equipment_button_pressed"]
+[connection signal="pressed" from="print_backpack_button" to="." method="_on_print_backpack_button_pressed"]

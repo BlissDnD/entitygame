@@ -51,3 +51,11 @@ World Law data lives under `systems/world_laws/` as a standalone RefCounted foun
 - `world_law_debug_formatter.gd` provides compact text output for future GodMode/debug visualization.
 
 Validation examples live in `tests/world_laws/`. This system does not create scene actors, autoloads, UI, save/load, or gameplay ownership by itself.
+
+## Debug UI
+
+Reusable debug UI lives under `ui/debug/`.
+
+- `ui/debug/godmode_panel.tscn` and `godmode_panel.gd` own the compact GodMode controls and labels.
+- Gameplay state remains owned by `world_scene.gd`; the panel receives snapshot dictionaries through `refresh()` and emits request signals for debug actions.
+- Debug UI must not directly mutate gameplay systems or become runtime ownership for mining, inventory, equipment, backpack, sun-cycle, or world-law data.

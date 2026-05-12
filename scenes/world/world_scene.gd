@@ -95,28 +95,7 @@ var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 @onready var console_layer: CanvasLayer = $console_layer
 @onready var console_panel: Panel = $console_layer/console_panel
 @onready var console_input: LineEdit = $console_layer/console_panel/console_input
-@onready var godmode_panel: Panel = $console_layer/godmode_panel
-@onready var mining_power_slider: HSlider = $console_layer/godmode_panel/mining_power_slider
-@onready var mining_power_value: Label = $console_layer/godmode_panel/mining_power_value
-@onready var mining_radius_slider: HSlider = $console_layer/godmode_panel/mining_radius_slider
-@onready var mining_radius_value: Label = $console_layer/godmode_panel/mining_radius_value
-@onready var square_button: Button = $console_layer/godmode_panel/square_button
-@onready var circle_button: Button = $console_layer/godmode_panel/circle_button
-@onready var selected_material_value: Label = $console_layer/godmode_panel/selected_material_value
-@onready var inventory_value: Label = $console_layer/godmode_panel/inventory_value
-@onready var material_counts_value: Label = $console_layer/godmode_panel/material_counts_value
-@onready var placement_value: Label = $console_layer/godmode_panel/placement_value
-@onready var equipment_status_value: Label = $console_layer/godmode_panel/equipment_status_value
-@onready var backpack_contents_value: Label = $console_layer/godmode_panel/backpack_contents_value
-@onready var sun_cycle_status_value: Label = $console_layer/godmode_panel/sun_cycle_status_value
-@onready var equip_tool_button: Button = $console_layer/godmode_panel/equip_tool_button
-@onready var unequip_tool_button: Button = $console_layer/godmode_panel/unequip_tool_button
-@onready var equip_backpack_button: Button = $console_layer/godmode_panel/equip_backpack_button
-@onready var unequip_backpack_button: Button = $console_layer/godmode_panel/unequip_backpack_button
-@onready var add_stone_button: Button = $console_layer/godmode_panel/add_stone_button
-@onready var add_scrap_button: Button = $console_layer/godmode_panel/add_scrap_button
-@onready var print_equipment_button: Button = $console_layer/godmode_panel/print_equipment_button
-@onready var print_backpack_button: Button = $console_layer/godmode_panel/print_backpack_button
+@onready var godmode_panel: GodModePanel = $console_layer/godmode_panel
 
 
 func _ready() -> void:
@@ -124,6 +103,7 @@ func _ready() -> void:
 	room_rng.randomize()
 	_setup_item_debug_components()
 	_setup_sun_cycle()
+	_setup_godmode_panel()
 	_apply_view_resolution()
 	_generate_rooms()
 	camera_2d.ignore_rotation = true
@@ -158,6 +138,20 @@ func _setup_sun_cycle() -> void:
 	planet_sun_cycle.sun_room_changed.connect(_on_sun_cycle_sun_room_changed)
 	planet_sun_cycle.room_time_state_changed.connect(_on_room_time_state_changed)
 	planet_sun_cycle.configure(GameplayTuningClass.ROOM_COUNT, PlanetSunCycleClass.DEFAULT_HOUR_DURATION_SECONDS)
+
+
+func _setup_godmode_panel() -> void:
+	godmode_panel.mining_power_changed.connect(_on_godmode_mining_power_changed)
+	godmode_panel.mining_radius_changed.connect(_on_godmode_mining_radius_changed)
+	godmode_panel.mining_shape_changed.connect(_on_godmode_mining_shape_changed)
+	godmode_panel.equip_tool_requested.connect(_on_equip_tool_button_pressed)
+	godmode_panel.unequip_tool_requested.connect(_on_unequip_tool_button_pressed)
+	godmode_panel.equip_backpack_requested.connect(_on_equip_backpack_button_pressed)
+	godmode_panel.unequip_backpack_requested.connect(_on_unequip_backpack_button_pressed)
+	godmode_panel.add_stone_requested.connect(_on_add_stone_button_pressed)
+	godmode_panel.add_scrap_requested.connect(_on_add_scrap_button_pressed)
+	godmode_panel.print_equipment_requested.connect(_on_print_equipment_button_pressed)
+	godmode_panel.print_backpack_requested.connect(_on_print_backpack_button_pressed)
 
 
 func _process(delta: float) -> void:
@@ -2266,50 +2260,56 @@ func _is_pointer_over_debug_ui() -> bool:
 
 
 func _update_godmode_visibility() -> void:
-	godmode_panel.visible = debug_settings.godmode_enabled
+	godmode_panel.set_visible_state(debug_settings.godmode_enabled)
 
 
 func _refresh_godmode_ui() -> void:
 	_update_godmode_visibility()
-	mining_power_slider.min_value = GameplayTuningClass.MINING_POWER_MIN
-	mining_power_slider.max_value = GameplayTuningClass.MINING_POWER_MAX
-	mining_radius_slider.min_value = GameplayTuningClass.MINING_RADIUS_MIN
-	mining_radius_slider.max_value = GameplayTuningClass.MINING_RADIUS_MAX
-	mining_power_slider.value = debug_settings.mining_power
-	mining_power_value.text = "Power %d" % int(round(debug_settings.mining_power))
-	mining_radius_slider.value = debug_settings.mining_radius
-	mining_radius_value.text = "Size %d" % debug_settings.mining_radius
-	square_button.button_pressed = debug_settings.mining_shape == WorldConstantsClass.ToolShape.SQUARE
-	circle_button.button_pressed = debug_settings.mining_shape == WorldConstantsClass.ToolShape.CIRCLE
-	selected_material_value.text = "Selected %s" % _get_cell_type_name(selected_material_id)
-	inventory_value.text = "Inventory %d/%d  Weight %.1f/%.1f  Drops %d" % [
-		inventory_data.get_total_count(),
-		inventory_data.max_capacity,
-		inventory_data.get_total_weight(),
-		inventory_data.max_weight_capacity,
-		item_drop_data.get_total_drop_count()
-	]
-	material_counts_value.text = "DIRT %d (%.1f)  STONE %d (%.1f)" % [
-		inventory_data.get_material_count(WorldConstantsClass.CellType.DIRT),
-		WorldMaterialsClass.get_inventory_weight(WorldConstantsClass.CellType.DIRT),
-		inventory_data.get_material_count(WorldConstantsClass.CellType.STONE),
-		WorldMaterialsClass.get_inventory_weight(WorldConstantsClass.CellType.STONE)
-	]
-	placement_value.text = "Placement %s size %d" % [
-		_get_shape_name(debug_settings.mining_shape),
-		debug_settings.mining_radius
-	]
-	equipment_status_value.text = "Tool %s  Bag %s  Cursor %s" % [
-		_get_equipped_tool_label(),
-		_get_equipped_backpack_label(),
-		player_cursor_controller.get_current_cursor_behavior_name()
-	]
-	backpack_contents_value.text = "Bag: %s" % _get_backpack_contents_summary()
-	sun_cycle_status_value.text = "Time H%02d  Sun R%d  Room %s" % [
-		planet_sun_cycle.get_current_hour(),
-		planet_sun_cycle.get_sun_room_index() + 1,
-		planet_sun_cycle.get_room_time_state_name(current_room_index)
-	]
+	godmode_panel.refresh(_build_godmode_snapshot())
+
+
+func _build_godmode_snapshot() -> Dictionary:
+	return {
+		"mining_power": debug_settings.mining_power,
+		"mining_power_min": GameplayTuningClass.MINING_POWER_MIN,
+		"mining_power_max": GameplayTuningClass.MINING_POWER_MAX,
+		"mining_radius": debug_settings.mining_radius,
+		"mining_radius_min": GameplayTuningClass.MINING_RADIUS_MIN,
+		"mining_radius_max": GameplayTuningClass.MINING_RADIUS_MAX,
+		"mining_shape": debug_settings.mining_shape,
+		"square_shape": WorldConstantsClass.ToolShape.SQUARE,
+		"circle_shape": WorldConstantsClass.ToolShape.CIRCLE,
+		"selected_material_text": "Inventory selected %s" % _get_cell_type_name(selected_material_id),
+		"inventory_text": "Inventory %d/%d  Weight %.1f/%.1f  Drops %d" % [
+			inventory_data.get_total_count(),
+			inventory_data.max_capacity,
+			inventory_data.get_total_weight(),
+			inventory_data.max_weight_capacity,
+			item_drop_data.get_total_drop_count(),
+		],
+		"material_counts_text": "DIRT %d (%.1f)  STONE %d (%.1f)" % [
+			inventory_data.get_material_count(WorldConstantsClass.CellType.DIRT),
+			WorldMaterialsClass.get_inventory_weight(WorldConstantsClass.CellType.DIRT),
+			inventory_data.get_material_count(WorldConstantsClass.CellType.STONE),
+			WorldMaterialsClass.get_inventory_weight(WorldConstantsClass.CellType.STONE),
+		],
+		"placement_text": "Placement %s size %d" % [
+			_get_shape_name(debug_settings.mining_shape),
+			debug_settings.mining_radius,
+		],
+		"equipment_text": "Equipment: Tool %s  Bag %s  Cursor %s" % [
+			_get_equipped_tool_label(),
+			_get_equipped_backpack_label(),
+			player_cursor_controller.get_current_cursor_behavior_name(),
+		],
+		"backpack_text": "Backpack: %s" % _get_backpack_contents_summary(),
+		"sun_cycle_text": "Sun Cycle: H%02d  Sun R%d  Room %s" % [
+			planet_sun_cycle.get_current_hour(),
+			planet_sun_cycle.get_sun_room_index() + 1,
+			planet_sun_cycle.get_room_time_state_name(current_room_index),
+		],
+		"world_laws_text": "World Laws: not implemented yet",
+	}
 
 
 func _get_equipped_tool_label() -> String:
@@ -2526,26 +2526,20 @@ func _print_backpack_contents() -> void:
 		print("  %s x%d" % [item_stack.item_definition.id, item_stack.amount])
 
 
-func _on_mining_power_slider_value_changed(value: float) -> void:
+func _on_godmode_mining_power_changed(value: float) -> void:
 	debug_settings.set_mining_power(value)
 	_refresh_godmode_ui()
 	queue_redraw()
 
 
-func _on_mining_radius_slider_value_changed(value: float) -> void:
-	debug_settings.set_mining_radius(int(round(value)))
+func _on_godmode_mining_radius_changed(value: int) -> void:
+	debug_settings.set_mining_radius(value)
 	_refresh_godmode_ui()
 	queue_redraw()
 
 
-func _on_square_button_pressed() -> void:
-	debug_settings.set_mining_shape(WorldConstantsClass.ToolShape.SQUARE)
-	_refresh_godmode_ui()
-	queue_redraw()
-
-
-func _on_circle_button_pressed() -> void:
-	debug_settings.set_mining_shape(WorldConstantsClass.ToolShape.CIRCLE)
+func _on_godmode_mining_shape_changed(shape: int) -> void:
+	debug_settings.set_mining_shape(shape)
 	_refresh_godmode_ui()
 	queue_redraw()
 
