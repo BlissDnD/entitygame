@@ -3,11 +3,11 @@
 [ext_resource type="Script" path="res://ui/debug/godmode_panel.gd" id="1_godmode_panel"]
 
 [node name="godmode_panel" type="Panel"]
-visible = false
 offset_left = 16.0
 offset_top = 80.0
 offset_right = 336.0
 offset_bottom = 412.0
+custom_minimum_size = Vector2(320, 332)
 script = ExtResource("1_godmode_panel")
 
 [node name="mining_power_slider" type="HSlider" parent="."]
