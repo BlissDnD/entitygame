@@ -10,6 +10,7 @@ const MiningToolProfilesClass = preload("res://systems/world/mining_tool_profile
 const ItemDropDataClass = preload("res://systems/items/item_drop_data.gd")
 const WorldRendererClass = preload("res://systems/world/world_renderer.gd")
 const RuntimeDebugSettingsClass = preload("res://systems/world/runtime_debug_settings.gd")
+const WorldBackgroundControllerClass = preload("res://systems/world/world_background_controller.gd")
 const InventoryDataClass = preload("res://systems/inventory/inventory_data.gd")
 const ItemTypesClass = preload("res://systems/items/item_types.gd")
 const EquipmentSlotClass = preload("res://systems/equipment/equipment_slot.gd")
@@ -94,10 +95,7 @@ var last_run_direction: int = 0
 var world_backpack_items: Array[BackpackWorldItem] = []
 var has_spawned_initial_backpack: bool = false
 var has_printed_missing_mining_tool_warning: bool = false
-var background_start_color: Color = Color(0.07, 0.08, 0.1, 1.0)
-var background_current_color: Color = Color(0.07, 0.08, 0.1, 1.0)
-var background_target_color: Color = Color(0.07, 0.08, 0.1, 1.0)
-var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
+var background_controller = WorldBackgroundControllerClass.new()
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var crash_ship: CrashShip = $crash_ship
@@ -116,6 +114,7 @@ var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
 	debug_settings.set_godmode_enabled(starts_in_godmode)
+	background_controller.configure(BACKGROUND_FADE_DURATION)
 	room_rng.randomize()
 	_setup_item_debug_components()
 	_setup_ui_root()
@@ -186,7 +185,7 @@ func _setup_godmode_panel() -> void:
 
 func _process(delta: float) -> void:
 	var should_redraw: bool = false
-	if _update_background_fade(delta):
+	if background_controller.update(delta):
 		should_redraw = true
 	if planet_sun_cycle.advance(delta):
 		should_redraw = true
@@ -297,7 +296,7 @@ func _draw() -> void:
 	var view_origin: Vector2 = _get_view_origin_world()
 	var view_size: Vector2 = _get_viewport_world_size()
 
-	draw_rect(Rect2(view_origin, view_size), _get_current_room_background_color(), true)
+	draw_rect(Rect2(view_origin, view_size), background_controller.get_current_color(), true)
 	_draw_sun()
 	last_render_stats = world_renderer.draw_visible_chunks(self, view_origin, view_size)
 	_draw_room_bounds()
@@ -666,40 +665,16 @@ func _draw_room_tooltip() -> void:
 	)
 
 
-func _get_current_room_background_color() -> Color:
-	return background_current_color
-
-
-func _update_background_fade(delta: float) -> bool:
-	if background_fade_elapsed >= BACKGROUND_FADE_DURATION:
-		return false
-
-	background_fade_elapsed = minf(background_fade_elapsed + delta, BACKGROUND_FADE_DURATION)
-	var fade_t: float = background_fade_elapsed / BACKGROUND_FADE_DURATION
-	background_current_color = background_start_color.lerp(background_target_color, fade_t)
-	if background_fade_elapsed >= BACKGROUND_FADE_DURATION:
-		background_current_color = background_target_color
-		print("[SunCycle] background fade completed: %s" % planet_sun_cycle.get_room_time_state_name(current_room_index))
-
-	return true
-
-
 func _start_background_fade(next_color: Color, reason: String) -> void:
-	if background_target_color == next_color and background_fade_elapsed < BACKGROUND_FADE_DURATION:
+	if background_controller.get_target_color() == next_color and background_controller.is_fading():
 		return
 
-	background_start_color = background_current_color
-	background_target_color = next_color
-	background_fade_elapsed = 0.0
-	print("[SunCycle] background fade started (%s): %s" % [reason, planet_sun_cycle.get_room_time_state_name(current_room_index)])
+	background_controller.start_fade(next_color, reason, planet_sun_cycle.get_room_time_state_name(current_room_index))
 	queue_redraw()
 
 
 func _set_background_color_immediate(next_color: Color) -> void:
-	background_start_color = next_color
-	background_current_color = next_color
-	background_target_color = next_color
-	background_fade_elapsed = BACKGROUND_FADE_DURATION
+	background_controller.set_color_immediate(next_color)
 
 
 func _draw_sun() -> void:
