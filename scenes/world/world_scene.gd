@@ -38,6 +38,8 @@ const MAX_ATLAS_WORKER_FOLLOWERS: int = 10
 const BACKGROUND_FADE_DURATION: float = 1.4
 const SUN_VISUAL_RADIUS: float = 20.0
 
+@export var starts_in_godmode: bool = false
+
 var active_tool_profile: Dictionary = MiningToolProfilesClass.get_profile("starter_pickaxe")
 var debug_settings = RuntimeDebugSettingsClass.new()
 var world_data = WorldDataClass.new()
@@ -100,6 +102,7 @@ var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 
 func _ready() -> void:
 	debug_settings.apply_tool_profile(active_tool_profile)
+	debug_settings.set_godmode_enabled(starts_in_godmode)
 	room_rng.randomize()
 	_setup_item_debug_components()
 	_setup_sun_cycle()

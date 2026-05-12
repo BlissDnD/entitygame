@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/world/world_scene.tscn" id="1_world_scene"]
+
+[node name="godmode_world" instance=ExtResource("1_world_scene")]
+starts_in_godmode = true

@@ -59,4 +59,4 @@ Reusable debug UI lives under `ui/debug/`.
 - `ui/debug/godmode_panel.tscn` and `godmode_panel.gd` own the compact GodMode controls and labels.
 - Gameplay state remains owned by `world_scene.gd`; the panel receives snapshot dictionaries through `refresh()` and emits request signals for debug actions.
 - Debug UI must not directly mutate gameplay systems or become runtime ownership for mining, inventory, equipment, backpack, sun-cycle, or world-law data.
-- `scenes/debug/godmode_lab.tscn` is a standalone development sandbox that reuses the same runtime foundations and binds them to the reusable GodMode panel for tuning and inspection.
+- `scenes/debug/godmode_world.tscn` instances the real `scenes/world/world_scene.tscn` with `starts_in_godmode = true`; it must not own a separate world simulation.

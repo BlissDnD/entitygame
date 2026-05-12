@@ -1,45 +1,44 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://cjdixtvblqg6s"]
 
 [ext_resource type="Script" path="res://scenes/debug/godmode_lab.gd" id="1_godmode_lab"]
 [ext_resource type="PackedScene" path="res://ui/debug/godmode_panel.tscn" id="2_godmode_panel"]
 
-[node name="godmode_lab" type="Node2D"]
+[node name="godmode_lab" type="Node2D" unique_id=787534330]
 script = ExtResource("1_godmode_lab")
 
-[node name="camera_2d" type="Camera2D" parent="."]
-enabled = true
+[node name="camera_2d" type="Camera2D" parent="." unique_id=1723165619]
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
 
-[node name="world_objects" type="Node2D" parent="."]
+[node name="world_objects" type="Node2D" parent="." unique_id=2011002910]
 
-[node name="placeable_objects" type="Node2D" parent="world_objects"]
+[node name="placeable_objects" type="Node2D" parent="world_objects" unique_id=1836216374]
 
-[node name="item_objects" type="Node2D" parent="world_objects"]
+[node name="item_objects" type="Node2D" parent="world_objects" unique_id=631141035]
 
-[node name="debug_layer" type="CanvasLayer" parent="."]
+[node name="debug_layer" type="CanvasLayer" parent="." unique_id=1235530652]
 
-[node name="godmode_panel" parent="debug_layer" instance=ExtResource("2_godmode_panel")]
-offset_left = 16.0
+[node name="godmode_panel" parent="debug_layer" unique_id=1762114173 instance=ExtResource("2_godmode_panel")]
 offset_top = 16.0
-offset_right = 336.0
 offset_bottom = 348.0
 
-[node name="lab_panel" type="Panel" parent="debug_layer"]
+[node name="lab_panel" type="Panel" parent="debug_layer" unique_id=549792168]
+custom_minimum_size = Vector2(288, 260)
 offset_left = 352.0
 offset_top = 16.0
 offset_right = 640.0
 offset_bottom = 276.0
-custom_minimum_size = Vector2(288, 260)
 
-[node name="title" type="Label" parent="debug_layer/lab_panel"]
+[node name="title" type="Label" parent="debug_layer/lab_panel" unique_id=1303690482]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 10.0
 offset_right = 276.0
 offset_bottom = 32.0
 text = "GodMode Lab"
 
-[node name="lab_readout" type="Label" parent="debug_layer/lab_panel"]
+[node name="lab_readout" type="Label" parent="debug_layer/lab_panel" unique_id=284886053]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 36.0
 offset_right = 276.0
@@ -47,49 +46,56 @@ offset_bottom = 84.0
 text = "Lab readout"
 autowrap_mode = 3
 
-[node name="spawn_backpack_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="spawn_backpack_button" type="Button" parent="debug_layer/lab_panel" unique_id=1436477376]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 92.0
 offset_right = 136.0
 offset_bottom = 122.0
 text = "Spawn Backpack"
 
-[node name="spawn_placeable_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="spawn_placeable_button" type="Button" parent="debug_layer/lab_panel" unique_id=1581420152]
+layout_mode = 0
 offset_left = 148.0
 offset_top = 92.0
 offset_right = 276.0
 offset_bottom = 122.0
 text = "Spawn Tree"
 
-[node name="advance_hour_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="advance_hour_button" type="Button" parent="debug_layer/lab_panel" unique_id=879272134]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 130.0
 offset_right = 136.0
 offset_bottom = 160.0
 text = "Advance Hour"
 
-[node name="reset_sun_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="reset_sun_button" type="Button" parent="debug_layer/lab_panel" unique_id=538893145]
+layout_mode = 0
 offset_left = 148.0
 offset_top = 130.0
 offset_right = 276.0
 offset_bottom = 160.0
 text = "Reset Sun"
 
-[node name="print_inventory_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="print_inventory_button" type="Button" parent="debug_layer/lab_panel" unique_id=1906735545]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 168.0
 offset_right = 136.0
 offset_bottom = 198.0
 text = "Print Inventory"
 
-[node name="toggle_material_button" type="Button" parent="debug_layer/lab_panel"]
+[node name="toggle_material_button" type="Button" parent="debug_layer/lab_panel" unique_id=928038922]
+layout_mode = 0
 offset_left = 148.0
 offset_top = 168.0
 offset_right = 276.0
 offset_bottom = 198.0
 text = "Toggle Material"
 
-[node name="world_laws_label" type="Label" parent="debug_layer/lab_panel"]
+[node name="world_laws_label" type="Label" parent="debug_layer/lab_panel" unique_id=1634505388]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 214.0
 offset_right = 276.0

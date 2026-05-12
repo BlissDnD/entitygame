@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="PlaceableObjectDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="PlaceableObjectDefinition" format=3 uid="uid://b4gwtba2jt3qr"]
 
-[ext_resource type="Script" path="res://systems/placeables/placeable_object_definition.gd" id="1_definition"]
+[ext_resource type="Script" uid="uid://b1gcsixhjaljc" path="res://systems/placeables/placeable_object_definition.gd" id="1_definition"]
 [ext_resource type="PackedScene" path="res://entity/placeable/prototype_tree.tscn" id="2_scene"]
 
 [resource]
@@ -8,8 +8,6 @@ script = ExtResource("1_definition")
 id = &"prototype_tree"
 display_name = "Prototype Tree"
 scene = ExtResource("2_scene")
-placement_mode = 1
 has_collision = true
 footprint_tiles = Vector2i(6, 10)
 placement_offset = Vector2(24, 80)
-requires_support_tile = true
