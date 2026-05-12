@@ -40,3 +40,14 @@ Room-local day/night state is owned by the lightweight sun-cycle system:
 The cycle updates room state caches only when the hour changes, not every frame. Future gameplay systems should query `PlanetSunCycle` instead of hardcoding day/night rules.
 
 The sun starts at 12 AM in zero-based room index `12` for the 24-room prototype. The sun moves left to right by increasing room index. The 8-room `DAY` band is centered on the sun using offsets `-3..+4`; rooms ahead of the moving sun become `DAWN`, and rooms behind it become `DUSK`.
+
+## World Laws
+
+World Law data lives under `systems/world_laws/` as a standalone RefCounted foundation layer.
+
+- `world_law_entity_data.gd` stores stable identity, physical properties, visible conditions, hidden conditions, temporary states, lifecycle data, and fates.
+- Conditions, temporary states, lifecycle, and fates are separate concepts and should not be collapsed into a generic status list.
+- `world_law_evaluator.gd` evaluates an explicit dirty queue only; callers must queue entities when data changes or when temporary states need ticking.
+- `world_law_debug_formatter.gd` provides compact text output for future GodMode/debug visualization.
+
+Validation examples live in `tests/world_laws/`. This system does not create scene actors, autoloads, UI, save/load, or gameplay ownership by itself.
