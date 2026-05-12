@@ -12,6 +12,11 @@ signal add_stone_requested
 signal add_scrap_requested
 signal print_equipment_requested
 signal print_backpack_requested
+signal gravity_field_mode_requested
+signal gravity_point_mode_requested
+signal gravity_strength_selected(level_index: int)
+signal time_forward_requested
+signal time_backward_requested
 
 var square_shape_value: int = 0
 var circle_shape_value: int = 1
@@ -27,6 +32,9 @@ var is_refreshing: bool = false
 @onready var inventory_value: Label = $inventory_value
 @onready var material_counts_value: Label = $material_counts_value
 @onready var placement_value: Label = $placement_value
+@onready var build_mode_value: Label = $build_mode_value
+@onready var gravity_status_value: Label = $gravity_status_value
+@onready var gravity_strength_popup: Panel = $gravity_strength_popup
 @onready var equipment_status_value: Label = $equipment_status_value
 @onready var backpack_contents_value: Label = $backpack_contents_value
 @onready var sun_cycle_status_value: Label = $sun_cycle_status_value
@@ -62,9 +70,11 @@ func refresh(snapshot: Dictionary) -> void:
 	inventory_value.text = String(snapshot.get("inventory_text", "Inventory -"))
 	material_counts_value.text = String(snapshot.get("material_counts_text", "Materials -"))
 	placement_value.text = String(snapshot.get("placement_text", "Placement -"))
+	build_mode_value.text = String(snapshot.get("build_mode_text", "Mode NONE"))
+	gravity_status_value.text = String(snapshot.get("gravity_text", "Gravity fields 0"))
 	equipment_status_value.text = String(snapshot.get("equipment_text", "Equipment -"))
 	backpack_contents_value.text = String(snapshot.get("backpack_text", "Bag: -"))
-	sun_cycle_status_value.text = String(snapshot.get("sun_cycle_text", "Time -"))
+	sun_cycle_status_value.text = String(snapshot.get("current_time_text", snapshot.get("sun_cycle_text", "Time -")))
 	world_laws_status_value.text = String(snapshot.get("world_laws_text", "World Laws: not implemented yet"))
 	is_refreshing = false
 
@@ -123,3 +133,52 @@ func _on_print_equipment_button_pressed() -> void:
 
 func _on_print_backpack_button_pressed() -> void:
 	print_backpack_requested.emit()
+
+
+func _on_gravity_field_button_pressed() -> void:
+	gravity_field_mode_requested.emit()
+
+
+func _on_gravity_point_button_pressed() -> void:
+	gravity_point_mode_requested.emit()
+
+
+func show_gravity_strength_popup() -> void:
+	gravity_strength_popup.visible = true
+
+
+func hide_gravity_strength_popup() -> void:
+	gravity_strength_popup.visible = false
+
+
+func _select_gravity_strength(level_index: int) -> void:
+	gravity_strength_selected.emit(level_index)
+	hide_gravity_strength_popup()
+
+
+func _on_gravity_strength_1_button_pressed() -> void:
+	_select_gravity_strength(0)
+
+
+func _on_gravity_strength_2_button_pressed() -> void:
+	_select_gravity_strength(1)
+
+
+func _on_gravity_strength_3_button_pressed() -> void:
+	_select_gravity_strength(2)
+
+
+func _on_gravity_strength_4_button_pressed() -> void:
+	_select_gravity_strength(3)
+
+
+func _on_gravity_strength_5_button_pressed() -> void:
+	_select_gravity_strength(4)
+
+
+func _on_time_forward_button_pressed() -> void:
+	time_forward_requested.emit()
+
+
+func _on_time_backward_button_pressed() -> void:
+	time_backward_requested.emit()

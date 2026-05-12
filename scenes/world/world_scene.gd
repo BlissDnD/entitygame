@@ -19,6 +19,7 @@ const PlayerCursorControllerClass = preload("res://systems/cursor/player_cursor_
 const CursorBehaviorDefinitionClass = preload("res://systems/cursor/cursor_behavior_definition.gd")
 const PlanetSunCycleClass = preload("res://systems/time/planet_sun_cycle.gd")
 const PlaceablePlacementServiceClass = preload("res://systems/placeables/placeable_placement_service.gd")
+const GravityFieldSystemClass = preload("res://systems/world/gravity_field_system.gd")
 const PrototypeTreeDefinition = preload("res://resources/placeables/prototype_tree.tres")
 const AtlasWorkerSpawnPointScene = preload("res://entity/npc/atlas_worker/atlas_worker_spawn_point.tscn")
 const BackpackWorldItemScene = preload("res://entity/items/backpack_world_item.tscn")
@@ -37,6 +38,13 @@ const SURFACE_PROP_ROCK: String = "rock"
 const MAX_ATLAS_WORKER_FOLLOWERS: int = 10
 const BACKGROUND_FADE_DURATION: float = 1.4
 const SUN_VISUAL_RADIUS: float = 20.0
+const GRAVITY_FIELD_STRENGTH_MILESTONES = [180.0, 320.0, 520.0, 760.0, 980.0]
+
+enum BuildMode {
+	NONE,
+	GRAVITY_FIELD,
+	GRAVITY_POINT,
+}
 
 @export var starts_in_godmode: bool = false
 
@@ -71,7 +79,11 @@ var room_surface_props_list: Array = []
 var room_protected_cells_list: Array = []
 var room_placeable_container_list: Array[Node2D] = []
 var room_npc_container_list: Array[Node2D] = []
+var room_gravity_field_system_list: Array[GravityFieldSystem] = []
 var active_atlas_workers: Array[AtlasWorker] = []
+var gravity_field_system: GravityFieldSystem = GravityFieldSystemClass.new()
+var current_build_mode: int = BuildMode.NONE
+var pending_gravity_strength_field: GravityFieldData = null
 var current_room_index: int = 0
 var room_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var has_won: bool = false
@@ -98,6 +110,7 @@ var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 @onready var console_panel: Panel = $console_layer/console_panel
 @onready var console_input: LineEdit = $console_layer/console_panel/console_input
 @onready var godmode_panel: GodModePanel = $console_layer/godmode_panel
+@onready var time_hud_label: Label = $console_layer/time_hud_label
 
 
 func _ready() -> void:
@@ -121,6 +134,7 @@ func _ready() -> void:
 	_spawn_initial_backpack_world_item()
 	_update_player_follow_target()
 	_apply_camera_tracking(-1.0)
+	_update_time_hud()
 	_refresh_godmode_ui()
 	queue_redraw()
 
@@ -155,6 +169,11 @@ func _setup_godmode_panel() -> void:
 	godmode_panel.add_scrap_requested.connect(_on_add_scrap_button_pressed)
 	godmode_panel.print_equipment_requested.connect(_on_print_equipment_button_pressed)
 	godmode_panel.print_backpack_requested.connect(_on_print_backpack_button_pressed)
+	godmode_panel.gravity_field_mode_requested.connect(_on_gravity_field_mode_requested)
+	godmode_panel.gravity_point_mode_requested.connect(_on_gravity_point_mode_requested)
+	godmode_panel.gravity_strength_selected.connect(_on_gravity_strength_selected)
+	godmode_panel.time_forward_requested.connect(_on_time_forward_requested)
+	godmode_panel.time_backward_requested.connect(_on_time_backward_requested)
 
 
 func _process(delta: float) -> void:
@@ -220,6 +239,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if _is_pointer_over_debug_ui():
 				return
+			if _is_gravity_build_mode_active():
+				_handle_gravity_build_click()
+				get_viewport().set_input_as_handled()
+				queue_redraw()
+				return
 			if _try_pick_up_hovered_drops():
 				block_mining_until_left_released = true
 				queue_redraw()
@@ -229,6 +253,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			if _is_pointer_over_debug_ui():
+				return
+			if _is_gravity_build_mode_active():
+				_clear_build_mode()
+				get_viewport().set_input_as_handled()
+				queue_redraw()
 				return
 			if _should_show_place_cursor() and _try_place_preview_cells():
 				queue_redraw()
@@ -279,6 +308,7 @@ func _draw() -> void:
 
 	_draw_player()
 	_draw_carried_material_pile()
+	_draw_gravity_fields()
 
 	if debug_enabled:
 		_draw_labels()
@@ -294,6 +324,9 @@ func _draw() -> void:
 
 
 func _update_player(delta: float) -> bool:
+	if _is_player_inside_gravity_field():
+		return _update_player_in_gravity_field(delta)
+
 	var previous_position: Vector2 = player_world_position
 	var input_axis: float = Input.get_axis("move_left", "move_right")
 	var is_on_floor: bool = _is_player_on_floor()
@@ -324,6 +357,28 @@ func _update_player(delta: float) -> bool:
 
 	if _is_player_on_floor():
 		player_velocity.y = minf(player_velocity.y, 0.0)
+
+	return player_world_position != previous_position
+
+
+func _update_player_in_gravity_field(delta: float) -> bool:
+	var previous_position: Vector2 = player_world_position
+	var input_axis: float = Input.get_axis("move_left", "move_right")
+	var gravity_acceleration: Vector2 = _get_gravity_acceleration_at_player()
+
+	player_velocity += gravity_acceleration * delta
+	player_velocity.x += input_axis * GameplayTuningClass.PLAYER_MOVE_SPEED * delta * 2.0
+
+	if Input.is_action_just_pressed("move_up") and gravity_acceleration != Vector2.ZERO:
+		player_velocity += -gravity_acceleration.normalized() * absf(GameplayTuningClass.PLAYER_JUMP_VELOCITY)
+
+	var intended_motion: Vector2 = player_velocity * delta
+	_move_player(intended_motion)
+
+	if is_equal_approx(player_world_position.x, previous_position.x) and not is_zero_approx(intended_motion.x):
+		player_velocity.x = 0.0
+	if is_equal_approx(player_world_position.y, previous_position.y) and not is_zero_approx(intended_motion.y):
+		player_velocity.y = 0.0
 
 	return player_world_position != previous_position
 
@@ -375,6 +430,9 @@ func _settle_player_to_floor(max_steps: int) -> void:
 
 
 func _update_mining(delta: float) -> bool:
+	if _is_gravity_build_mode_active():
+		return false
+
 	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		block_mining_until_left_released = false
 		has_printed_missing_mining_tool_warning = false
@@ -475,7 +533,8 @@ func _update_item_drops(delta: float) -> bool:
 		_get_room_world_rect(),
 		GameplayTuningClass.DROPPED_ITEM_GRAVITY,
 		GameplayTuningClass.DROPPED_ITEM_PULL_RADIUS_PIXELS,
-		GameplayTuningClass.DROPPED_ITEM_MERGE_RADIUS_PIXELS
+		GameplayTuningClass.DROPPED_ITEM_MERGE_RADIUS_PIXELS,
+		gravity_field_system
 	)
 	return previous_drop_count != item_drop_data.get_drops().size() or previous_drop_count > 0
 
@@ -738,6 +797,31 @@ func _draw_item_drops() -> void:
 				Vector2(WorldConstantsClass.CELL_SIZE)
 			)
 			draw_rect(drop_rect, GameplayTuningClass.DROPPED_MATERIAL_HOVER_OUTLINE_COLOR, false, 1.0)
+
+
+func _draw_gravity_fields() -> void:
+	if not debug_settings.godmode_enabled:
+		return
+
+	for field in gravity_field_system.get_fields():
+		var field_color: Color = Color(0.4, 0.65, 1.0, 0.12)
+		var outline_color: Color = Color(0.45, 0.75, 1.0, 0.85)
+		draw_rect(field.bounds, field_color, true)
+		draw_rect(field.bounds, outline_color, false, 2.0)
+		if field.has_gravity_point:
+			draw_circle(field.gravity_point, 5.0, Color(0.25, 0.95, 1.0, 0.95))
+			draw_line(field.bounds.get_center(), field.gravity_point, Color(0.25, 0.95, 1.0, 0.45), 1.0)
+
+	if current_build_mode == BuildMode.GRAVITY_FIELD:
+		var preview_rect: Rect2 = _get_gravity_field_preview_rect()
+		draw_rect(preview_rect, Color(0.35, 0.7, 1.0, 0.14), true)
+		draw_rect(preview_rect, Color(0.35, 0.7, 1.0, 0.88), false, 2.0)
+	elif current_build_mode == BuildMode.GRAVITY_POINT:
+		var point_position: Vector2 = _get_cell_center_world(mining_center_cell)
+		var valid_color: Color = Color(0.2, 1.0, 0.75, 0.95)
+		if gravity_field_system.find_field_at(point_position) == null:
+			valid_color = Color(1.0, 0.28, 0.25, 0.9)
+		draw_circle(point_position, 7.0, valid_color)
 
 
 func _draw_drop_tooltip() -> void:
@@ -1036,6 +1120,7 @@ func _generate_rooms() -> void:
 	room_size_cells_list.clear()
 	room_surface_props_list.clear()
 	room_protected_cells_list.clear()
+	room_gravity_field_system_list.clear()
 	inventory_data.clear()
 	current_room_index = 0
 	has_won = false
@@ -1049,6 +1134,7 @@ func _generate_rooms() -> void:
 		room_size_cells_list.append(room_size_cells)
 		room_world_data_list.append(room_world_data)
 		room_drop_data_list.append(ItemDropDataClass.new())
+		room_gravity_field_system_list.append(GravityFieldSystemClass.new())
 		room_placeable_container_list.append(room_placeable_container)
 		room_npc_container_list.append(room_npc_container)
 		var tree_placement_stats: Dictionary = _create_tree_placement_stats(room_index)
@@ -1100,13 +1186,16 @@ func _set_current_room(room_index: int) -> void:
 	current_room_index = clampi(room_index, 0, room_world_data_list.size() - 1)
 	world_data = room_world_data_list[current_room_index]
 	item_drop_data = room_drop_data_list[current_room_index]
+	gravity_field_system = room_gravity_field_system_list[current_room_index]
 	world_renderer.set_world_data(world_data)
+	_clear_build_mode()
 	_update_crash_ship_visibility()
 	_update_room_placeable_visibility()
 	_update_room_npc_visibility()
 	_print_world_boundary_debug()
 	print("[SunCycle] current player room time state: %s" % planet_sun_cycle.get_room_time_state_name(current_room_index))
 	_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "room changed")
+	_update_time_hud()
 	_refresh_godmode_ui()
 
 
@@ -1961,11 +2050,101 @@ func _is_mining_target_in_range() -> bool:
 
 
 func _should_show_mining_cone_cursor() -> bool:
+	if _is_gravity_build_mode_active():
+		return false
 	return player_cursor_controller.get_current_cursor_behavior() == CursorBehaviorDefinitionClass.CursorBehavior.MINE_CONE
 
 
 func _should_show_place_cursor() -> bool:
+	if _is_gravity_build_mode_active():
+		return false
 	return player_cursor_controller.get_current_cursor_behavior() == CursorBehaviorDefinitionClass.CursorBehavior.PLACE
+
+
+func _is_gravity_build_mode_active() -> bool:
+	return current_build_mode == BuildMode.GRAVITY_FIELD or current_build_mode == BuildMode.GRAVITY_POINT
+
+
+func _is_player_inside_gravity_field() -> bool:
+	return gravity_field_system.find_active_field_intersecting(_get_player_world_rect()) != null
+
+
+func _get_gravity_acceleration_at_player() -> Vector2:
+	return gravity_field_system.get_gravity_acceleration(
+		_get_player_center_world(),
+		GameplayTuningClass.PLAYER_GRAVITY
+	)
+
+
+func _set_build_mode(next_build_mode: int) -> void:
+	current_build_mode = next_build_mode
+	block_mining_until_left_released = true
+	print("[GodModeGravity] build mode: %s" % _get_build_mode_name())
+	_refresh_godmode_ui()
+	queue_redraw()
+
+
+func _clear_build_mode() -> void:
+	if current_build_mode == BuildMode.NONE:
+		return
+	current_build_mode = BuildMode.NONE
+	block_mining_until_left_released = true
+	_refresh_godmode_ui()
+
+
+func _handle_gravity_build_click() -> void:
+	if current_build_mode == BuildMode.GRAVITY_FIELD:
+		var field_bounds: Rect2 = _get_gravity_field_preview_rect()
+		gravity_field_system.create_field(field_bounds, 0.0)
+		print("[GodModeGravity] gravity field placed: %s" % field_bounds)
+		_clear_build_mode()
+		_refresh_godmode_ui()
+		return
+
+	if current_build_mode == BuildMode.GRAVITY_POINT:
+		var point_position: Vector2 = _get_cell_center_world(mining_center_cell)
+		var field: GravityFieldData = gravity_field_system.set_gravity_point(point_position, _get_gravity_strength_for_level(1))
+		if field != null:
+			pending_gravity_strength_field = field
+			print("[GodModeGravity] gravity point set: %s" % point_position)
+			_clear_build_mode()
+			godmode_panel.show_gravity_strength_popup()
+		else:
+			print("[GodModeGravity] Cannot place gravity point outside a gravity field")
+		_refresh_godmode_ui()
+
+
+func _get_gravity_field_preview_rect() -> Rect2:
+	var preview_cells: Array[Vector2i] = _get_ordered_preview_cells()
+	if preview_cells.is_empty():
+		var cell_size: Vector2 = Vector2(WorldConstantsClass.CELL_SIZE)
+		return Rect2(WorldUtilsClass.cell_to_world(mining_center_cell), cell_size)
+
+	var min_cell: Vector2i = preview_cells[0]
+	var max_cell: Vector2i = preview_cells[0]
+	for cell_position in preview_cells:
+		min_cell.x = mini(min_cell.x, cell_position.x)
+		min_cell.y = mini(min_cell.y, cell_position.y)
+		max_cell.x = maxi(max_cell.x, cell_position.x)
+		max_cell.y = maxi(max_cell.y, cell_position.y)
+
+	var top_left: Vector2 = WorldUtilsClass.cell_to_world(min_cell)
+	var bottom_right: Vector2 = WorldUtilsClass.cell_to_world(max_cell + Vector2i.ONE)
+	return Rect2(top_left, bottom_right - top_left)
+
+
+func _get_build_mode_name() -> String:
+	match current_build_mode:
+		BuildMode.GRAVITY_FIELD:
+			return "GRAVITY_FIELD"
+		BuildMode.GRAVITY_POINT:
+			return "GRAVITY_POINT"
+		_:
+			return "NONE"
+
+
+func _get_gravity_strength_for_level(level_index: int) -> float:
+	return float(GRAVITY_FIELD_STRENGTH_MILESTONES[clampi(level_index, 0, GRAVITY_FIELD_STRENGTH_MILESTONES.size() - 1)])
 
 
 func _can_mine_with_equipped_tool() -> bool:
@@ -1987,6 +2166,10 @@ func _can_mine_with_equipped_tool() -> bool:
 
 func _get_player_center_world() -> Vector2:
 	return player_world_position + (_get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS) * 0.5)
+
+
+func _get_player_world_rect() -> Rect2:
+	return Rect2(player_world_position, _get_world_size_from_cells(GameplayTuningClass.PLAYER_SIZE_CELLS))
 
 
 func _get_player_ground_world() -> Vector2:
@@ -2208,6 +2391,7 @@ func _on_cursor_behavior_changed(cursor_behavior: int) -> void:
 
 func _on_sun_cycle_hour_changed(new_hour: int) -> void:
 	print("[SunCycle] hour changed: %d" % new_hour)
+	_update_time_hud()
 
 
 func _on_sun_cycle_sun_room_changed(new_room_index: int) -> void:
@@ -2231,6 +2415,20 @@ func _on_room_time_state_changed(room_index: int, old_state: int, new_state: int
 	if room_index == current_room_index:
 		print("[SunCycle] player room time state: %s" % planet_sun_cycle.get_time_state_name(new_state))
 		_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "room time state changed")
+		_update_time_hud()
+
+
+func _get_time_hud_text() -> String:
+	return "H%02d %s" % [
+		planet_sun_cycle.get_current_hour(),
+		planet_sun_cycle.get_room_time_state_name(current_room_index),
+	]
+
+
+func _update_time_hud() -> void:
+	if time_hud_label == null:
+		return
+	time_hud_label.text = _get_time_hud_text()
 
 
 func _toggle_console() -> void:
@@ -2300,6 +2498,12 @@ func _build_godmode_snapshot() -> Dictionary:
 			_get_shape_name(debug_settings.mining_shape),
 			debug_settings.mining_radius,
 		],
+		"build_mode_text": "Mode %s" % _get_build_mode_name(),
+		"gravity_text": "Gravity fields %d/%d  Player %s" % [
+			gravity_field_system.get_active_field_count(),
+			gravity_field_system.get_field_count(),
+			"local" if _is_player_inside_gravity_field() else "global",
+		],
 		"equipment_text": "Equipment: Tool %s  Bag %s  Cursor %s" % [
 			_get_equipped_tool_label(),
 			_get_equipped_backpack_label(),
@@ -2311,6 +2515,7 @@ func _build_godmode_snapshot() -> Dictionary:
 			planet_sun_cycle.get_sun_room_index() + 1,
 			planet_sun_cycle.get_room_time_state_name(current_room_index),
 		],
+		"current_time_text": _get_time_hud_text(),
 		"world_laws_text": "World Laws: not implemented yet",
 	}
 
@@ -2583,3 +2788,37 @@ func _on_print_equipment_button_pressed() -> void:
 
 func _on_print_backpack_button_pressed() -> void:
 	_run_godmode_item_ui_command("print_backpack")
+
+
+func _on_gravity_field_mode_requested() -> void:
+	_set_build_mode(BuildMode.GRAVITY_FIELD)
+
+
+func _on_gravity_point_mode_requested() -> void:
+	_set_build_mode(BuildMode.GRAVITY_POINT)
+
+
+func _on_gravity_strength_selected(level_index: int) -> void:
+	if pending_gravity_strength_field == null:
+		print("[GodModeGravity] No pending gravity point to tune")
+		return
+
+	var strength: float = _get_gravity_strength_for_level(level_index)
+	pending_gravity_strength_field.strength = strength
+	print("[GodModeGravity] gravity point strength: level %d/5 %.0f" % [level_index + 1, strength])
+	pending_gravity_strength_field = null
+	_refresh_godmode_ui()
+	queue_redraw()
+
+
+func _on_time_forward_requested() -> void:
+	planet_sun_cycle.advance_one_hour()
+	_start_background_fade(planet_sun_cycle.get_room_light_color(current_room_index), "debug time forward")
+	_update_time_hud()
+	_refresh_godmode_ui()
+	queue_redraw()
+
+
+func _on_time_backward_requested() -> void:
+	print("[GodModeTime] Time- is unsupported by the current sun-cycle system; no time change applied")
+	_refresh_godmode_ui()

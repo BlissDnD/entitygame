@@ -60,3 +60,9 @@ Reusable debug UI lives under `ui/debug/`.
 - Gameplay state remains owned by `world_scene.gd`; the panel receives snapshot dictionaries through `refresh()` and emits request signals for debug actions.
 - Debug UI must not directly mutate gameplay systems or become runtime ownership for mining, inventory, equipment, backpack, sun-cycle, or world-law data.
 - `scenes/debug/godmode_world.tscn` instances the real `scenes/world/world_scene.tscn` with `starts_in_godmode = true`; it must not own a separate world simulation.
+
+## Gravity Fields
+
+- `systems/world/gravity_field_system.gd` and `gravity_field_data.gd` provide local gravity-field test data for the playable world runtime.
+- `world_scene.gd` owns room-local gravity field systems and exposes GodMode placement modes for field bounds and gravity points.
+- Gravity fields are local modifiers; global player/world gravity remains unchanged outside a field.

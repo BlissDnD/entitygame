@@ -34,8 +34,8 @@ func add_item_stack(world_position: Vector2, item_kind: String, item_id: int, am
 	})
 
 
-func update_physics(world_data, delta: float, room_rect: Rect2, gravity: float, pull_radius_pixels: float, merge_radius_pixels: float) -> void:
-	_apply_gravity(world_data, delta, room_rect, gravity)
+func update_physics(world_data, delta: float, room_rect: Rect2, gravity: float, pull_radius_pixels: float, merge_radius_pixels: float, gravity_field_system = null) -> void:
+	_apply_gravity(world_data, delta, room_rect, gravity, gravity_field_system)
 	_pull_and_merge_matching_items(delta, room_rect, pull_radius_pixels, merge_radius_pixels)
 
 
@@ -103,24 +103,36 @@ func clear() -> void:
 	drops.clear()
 
 
-func _apply_gravity(world_data, delta: float, room_rect: Rect2, gravity: float) -> void:
+func _apply_gravity(world_data, delta: float, room_rect: Rect2, gravity: float, gravity_field_system = null) -> void:
 	for drop_index in range(drops.size()):
 		var drop_entry: Dictionary = drops[drop_index]
 		var world_position: Vector2 = Vector2(drop_entry.get("world_position", Vector2.ZERO))
 		var velocity: Vector2 = Vector2(drop_entry.get("velocity", Vector2.ZERO))
 
-		velocity.y += gravity * delta
+		var gravity_acceleration: Vector2 = Vector2(0.0, gravity)
+		if gravity_field_system != null and gravity_field_system.has_method("get_gravity_acceleration"):
+			gravity_acceleration = gravity_field_system.get_gravity_acceleration(world_position, gravity)
+
+		velocity += gravity_acceleration * delta
 		var next_position: Vector2 = world_position + (velocity * delta)
 		next_position.x = clampf(next_position.x, room_rect.position.x, room_rect.end.x)
 		next_position.y = clampf(next_position.y, room_rect.position.y, room_rect.end.y)
 
-		if _is_drop_supported(world_data, next_position):
-			velocity.y = 0.0
-			next_position.y = _get_supported_world_y(world_data, world_position, next_position.y)
+		if _is_using_downward_gravity(gravity_acceleration):
+			if _is_drop_supported(world_data, next_position):
+				velocity.y = 0.0
+				next_position.y = _get_supported_world_y(world_data, world_position, next_position.y)
+		elif world_data.is_solid_at_world(next_position):
+			velocity = Vector2.ZERO
+			next_position = world_position
 
 		drop_entry["world_position"] = next_position
 		drop_entry["velocity"] = velocity
 		drops[drop_index] = drop_entry
+
+
+func _is_using_downward_gravity(gravity_acceleration: Vector2) -> bool:
+	return gravity_acceleration.y > 0.0 and absf(gravity_acceleration.y) >= absf(gravity_acceleration.x)
 
 
 func _pull_and_merge_matching_items(delta: float, room_rect: Rect2, pull_radius_pixels: float, merge_radius_pixels: float) -> void:

@@ -4,174 +4,267 @@
 
 [node name="godmode_panel" type="Panel"]
 offset_left = 16.0
-offset_top = 80.0
-offset_right = 336.0
-offset_bottom = 412.0
-custom_minimum_size = Vector2(320, 332)
+offset_top = 48.0
+offset_right = 304.0
+offset_bottom = 352.0
+custom_minimum_size = Vector2(288, 304)
 script = ExtResource("1_godmode_panel")
 
 [node name="mining_power_slider" type="HSlider" parent="."]
-offset_left = 12.0
-offset_top = 16.0
-offset_right = 220.0
-offset_bottom = 32.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 178.0
+offset_bottom = 24.0
 min_value = 1.0
 max_value = 100.0
 step = 1.0
 value = 10.0
 
 [node name="mining_power_value" type="Label" parent="."]
-offset_left = 232.0
-offset_top = 14.0
-offset_right = 308.0
-offset_bottom = 34.0
+offset_left = 186.0
+offset_top = 6.0
+offset_right = 280.0
+offset_bottom = 26.0
 text = "Mining 10"
 
 [node name="mining_radius_slider" type="HSlider" parent="."]
-offset_left = 12.0
-offset_top = 52.0
-offset_right = 220.0
-offset_bottom = 68.0
+offset_left = 8.0
+offset_top = 32.0
+offset_right = 178.0
+offset_bottom = 48.0
 min_value = 1.0
 max_value = 10.0
 step = 1.0
 value = 2.0
 
 [node name="mining_radius_value" type="Label" parent="."]
-offset_left = 232.0
-offset_top = 50.0
-offset_right = 308.0
-offset_bottom = 70.0
+offset_left = 186.0
+offset_top = 30.0
+offset_right = 280.0
+offset_bottom = 50.0
 text = "Size 2"
 
 [node name="square_button" type="Button" parent="."]
 toggle_mode = true
-offset_left = 12.0
-offset_top = 92.0
-offset_right = 104.0
-offset_bottom = 124.0
+offset_left = 8.0
+offset_top = 58.0
+offset_right = 74.0
+offset_bottom = 82.0
 text = "Square"
 
 [node name="circle_button" type="Button" parent="."]
 toggle_mode = true
-offset_left = 112.0
-offset_top = 92.0
-offset_right = 204.0
-offset_bottom = 124.0
+offset_left = 78.0
+offset_top = 58.0
+offset_right = 144.0
+offset_bottom = 82.0
 text = "Circle"
 
+[node name="gravity_field_button" type="Button" parent="."]
+offset_left = 148.0
+offset_top = 58.0
+offset_right = 214.0
+offset_bottom = 82.0
+text = "Grav Field"
+
+[node name="gravity_point_button" type="Button" parent="."]
+offset_left = 218.0
+offset_top = 58.0
+offset_right = 280.0
+offset_bottom = 82.0
+text = "Grav Point"
+
 [node name="selected_material_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 136.0
-offset_right = 308.0
-offset_bottom = 156.0
-text = "Inventory selected DIRT"
+offset_left = 8.0
+offset_top = 88.0
+offset_right = 280.0
+offset_bottom = 106.0
+text = "Selected DIRT"
 
 [node name="inventory_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 156.0
-offset_right = 308.0
-offset_bottom = 176.0
+offset_left = 8.0
+offset_top = 106.0
+offset_right = 280.0
+offset_bottom = 124.0
 text = "Inventory 0/100"
 
 [node name="material_counts_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 176.0
-offset_right = 308.0
-offset_bottom = 196.0
+offset_left = 8.0
+offset_top = 124.0
+offset_right = 280.0
+offset_bottom = 142.0
 text = "DIRT 0 STONE 0"
 
 [node name="placement_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 196.0
-offset_right = 308.0
-offset_bottom = 216.0
-text = "Placement square size 2"
+offset_left = 8.0
+offset_top = 142.0
+offset_right = 144.0
+offset_bottom = 160.0
+text = "Placement square"
+
+[node name="build_mode_value" type="Label" parent="."]
+offset_left = 148.0
+offset_top = 142.0
+offset_right = 280.0
+offset_bottom = 160.0
+text = "Mode NONE"
+
+[node name="gravity_status_value" type="Label" parent="."]
+offset_left = 8.0
+offset_top = 160.0
+offset_right = 280.0
+offset_bottom = 178.0
+text = "Gravity fields 0"
 
 [node name="equipment_status_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 220.0
-offset_right = 308.0
-offset_bottom = 240.0
-text = "Equipment: Tool empty  Bag empty"
+offset_left = 8.0
+offset_top = 180.0
+offset_right = 280.0
+offset_bottom = 198.0
+text = "Equipment: Tool empty Bag empty"
 
 [node name="equip_tool_button" type="Button" parent="."]
-offset_left = 12.0
-offset_top = 244.0
-offset_right = 80.0
-offset_bottom = 272.0
-text = "Tool"
+offset_left = 8.0
+offset_top = 204.0
+offset_right = 58.0
+offset_bottom = 228.0
+text = "Tool+"
 
 [node name="unequip_tool_button" type="Button" parent="."]
-offset_left = 84.0
-offset_top = 244.0
-offset_right = 152.0
-offset_bottom = 272.0
-text = "No Tool"
+offset_left = 62.0
+offset_top = 204.0
+offset_right = 112.0
+offset_bottom = 228.0
+text = "Tool-"
 
 [node name="equip_backpack_button" type="Button" parent="."]
-offset_left = 156.0
-offset_top = 244.0
-offset_right = 224.0
-offset_bottom = 272.0
-text = "Bag"
+offset_left = 116.0
+offset_top = 204.0
+offset_right = 166.0
+offset_bottom = 228.0
+text = "Bag+"
 
 [node name="unequip_backpack_button" type="Button" parent="."]
-offset_left = 228.0
-offset_top = 244.0
-offset_right = 308.0
-offset_bottom = 272.0
-text = "No Bag"
+offset_left = 170.0
+offset_top = 204.0
+offset_right = 220.0
+offset_bottom = 228.0
+text = "Bag-"
+
+[node name="time_forward_button" type="Button" parent="."]
+offset_left = 224.0
+offset_top = 204.0
+offset_right = 280.0
+offset_bottom = 228.0
+text = "Time+"
 
 [node name="add_stone_button" type="Button" parent="."]
-offset_left = 12.0
-offset_top = 278.0
-offset_right = 80.0
-offset_bottom = 306.0
+offset_left = 8.0
+offset_top = 232.0
+offset_right = 58.0
+offset_bottom = 256.0
 text = "+Stone"
 
 [node name="add_scrap_button" type="Button" parent="."]
-offset_left = 84.0
-offset_top = 278.0
-offset_right = 152.0
-offset_bottom = 306.0
+offset_left = 62.0
+offset_top = 232.0
+offset_right = 112.0
+offset_bottom = 256.0
 text = "+Scrap"
 
 [node name="print_equipment_button" type="Button" parent="."]
-offset_left = 156.0
-offset_top = 278.0
-offset_right = 224.0
-offset_bottom = 306.0
-text = "Print Eq"
+offset_left = 116.0
+offset_top = 232.0
+offset_right = 166.0
+offset_bottom = 256.0
+text = "Eq?"
 
 [node name="print_backpack_button" type="Button" parent="."]
-offset_left = 228.0
-offset_top = 278.0
-offset_right = 308.0
-offset_bottom = 306.0
-text = "Print Bag"
+offset_left = 170.0
+offset_top = 232.0
+offset_right = 220.0
+offset_bottom = 256.0
+text = "Bag?"
+
+[node name="time_backward_button" type="Button" parent="."]
+offset_left = 224.0
+offset_top = 232.0
+offset_right = 280.0
+offset_bottom = 256.0
+text = "Time-"
 
 [node name="backpack_contents_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 312.0
-offset_right = 308.0
-offset_bottom = 348.0
+offset_left = 8.0
+offset_top = 260.0
+offset_right = 144.0
+offset_bottom = 278.0
 text = "Backpack: none"
-autowrap_mode = 3
+clip_text = true
 
 [node name="sun_cycle_status_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 352.0
-offset_right = 308.0
-offset_bottom = 372.0
-text = "Sun Cycle: H00  Sun R1"
+offset_left = 148.0
+offset_top = 260.0
+offset_right = 212.0
+offset_bottom = 278.0
+text = "H00 DAY"
 
 [node name="world_laws_status_value" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 376.0
-offset_right = 308.0
-offset_bottom = 396.0
+offset_left = 8.0
+offset_top = 280.0
+offset_right = 280.0
+offset_bottom = 300.0
 text = "World Laws: not implemented yet"
+clip_text = true
+
+[node name="gravity_strength_popup" type="Panel" parent="."]
+visible = false
+offset_left = 42.0
+offset_top = 92.0
+offset_right = 246.0
+offset_bottom = 174.0
+
+[node name="gravity_strength_title" type="Label" parent="gravity_strength_popup"]
+offset_left = 8.0
+offset_top = 6.0
+offset_right = 196.0
+offset_bottom = 24.0
+text = "Gravity strength"
+horizontal_alignment = 1
+
+[node name="gravity_strength_1_button" type="Button" parent="gravity_strength_popup"]
+offset_left = 8.0
+offset_top = 32.0
+offset_right = 44.0
+offset_bottom = 62.0
+text = "1"
+
+[node name="gravity_strength_2_button" type="Button" parent="gravity_strength_popup"]
+offset_left = 46.0
+offset_top = 32.0
+offset_right = 82.0
+offset_bottom = 62.0
+text = "2"
+
+[node name="gravity_strength_3_button" type="Button" parent="gravity_strength_popup"]
+offset_left = 84.0
+offset_top = 32.0
+offset_right = 120.0
+offset_bottom = 62.0
+text = "3"
+
+[node name="gravity_strength_4_button" type="Button" parent="gravity_strength_popup"]
+offset_left = 122.0
+offset_top = 32.0
+offset_right = 158.0
+offset_bottom = 62.0
+text = "4"
+
+[node name="gravity_strength_5_button" type="Button" parent="gravity_strength_popup"]
+offset_left = 160.0
+offset_top = 32.0
+offset_right = 196.0
+offset_bottom = 62.0
+text = "5"
 
 [connection signal="value_changed" from="mining_power_slider" to="." method="_on_mining_power_slider_value_changed"]
 [connection signal="value_changed" from="mining_radius_slider" to="." method="_on_mining_radius_slider_value_changed"]
@@ -185,3 +278,12 @@ text = "World Laws: not implemented yet"
 [connection signal="pressed" from="add_scrap_button" to="." method="_on_add_scrap_button_pressed"]
 [connection signal="pressed" from="print_equipment_button" to="." method="_on_print_equipment_button_pressed"]
 [connection signal="pressed" from="print_backpack_button" to="." method="_on_print_backpack_button_pressed"]
+[connection signal="pressed" from="gravity_field_button" to="." method="_on_gravity_field_button_pressed"]
+[connection signal="pressed" from="gravity_point_button" to="." method="_on_gravity_point_button_pressed"]
+[connection signal="pressed" from="time_forward_button" to="." method="_on_time_forward_button_pressed"]
+[connection signal="pressed" from="time_backward_button" to="." method="_on_time_backward_button_pressed"]
+[connection signal="pressed" from="gravity_strength_popup/gravity_strength_1_button" to="." method="_on_gravity_strength_1_button_pressed"]
+[connection signal="pressed" from="gravity_strength_popup/gravity_strength_2_button" to="." method="_on_gravity_strength_2_button_pressed"]
+[connection signal="pressed" from="gravity_strength_popup/gravity_strength_3_button" to="." method="_on_gravity_strength_3_button_pressed"]
+[connection signal="pressed" from="gravity_strength_popup/gravity_strength_4_button" to="." method="_on_gravity_strength_4_button_pressed"]
+[connection signal="pressed" from="gravity_strength_popup/gravity_strength_5_button" to="." method="_on_gravity_strength_5_button_pressed"]

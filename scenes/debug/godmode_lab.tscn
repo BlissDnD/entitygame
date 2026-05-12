@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://cjdixtvblqg6s"]
+[gd_scene format=3 uid="uid://cqotf4ufqo5fa"]
 
 [ext_resource type="Script" path="res://scenes/debug/godmode_lab.gd" id="1_godmode_lab"]
 [ext_resource type="PackedScene" path="res://ui/debug/godmode_panel.tscn" id="2_godmode_panel"]
