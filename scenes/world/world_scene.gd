@@ -110,7 +110,7 @@ var background_fade_elapsed: float = BACKGROUND_FADE_DURATION
 @onready var console_panel: Panel = $console_layer/console_panel
 @onready var console_input: LineEdit = $console_layer/console_panel/console_input
 @onready var godmode_panel: GodModePanel = $console_layer/godmode_panel
-@onready var time_hud_label: Label = $console_layer/time_hud_label
+@onready var ui_root: UIRoot = $UIRoot
 
 
 func _ready() -> void:
@@ -118,6 +118,7 @@ func _ready() -> void:
 	debug_settings.set_godmode_enabled(starts_in_godmode)
 	room_rng.randomize()
 	_setup_item_debug_components()
+	_setup_ui_root()
 	_setup_sun_cycle()
 	_setup_godmode_panel()
 	_apply_view_resolution()
@@ -148,6 +149,13 @@ func _setup_item_debug_components() -> void:
 	add_child(player_cursor_controller)
 	player_cursor_controller.cursor_behavior_changed.connect(_on_cursor_behavior_changed)
 	player_cursor_controller.bind_equipment(player_equipment)
+
+
+func _setup_ui_root() -> void:
+	if ui_root == null:
+		return
+	ui_root.bind_equipment(player_equipment)
+	ui_root.bind_cursor_controller(player_cursor_controller)
 
 
 func _setup_sun_cycle() -> void:
@@ -2080,6 +2088,7 @@ func _set_build_mode(next_build_mode: int) -> void:
 	current_build_mode = next_build_mode
 	block_mining_until_left_released = true
 	print("[GodModeGravity] build mode: %s" % _get_build_mode_name())
+	_update_time_hud()
 	_refresh_godmode_ui()
 	queue_redraw()
 
@@ -2089,6 +2098,7 @@ func _clear_build_mode() -> void:
 		return
 	current_build_mode = BuildMode.NONE
 	block_mining_until_left_released = true
+	_update_time_hud()
 	_refresh_godmode_ui()
 
 
@@ -2426,9 +2436,9 @@ func _get_time_hud_text() -> String:
 
 
 func _update_time_hud() -> void:
-	if time_hud_label == null:
-		return
-	time_hud_label.text = _get_time_hud_text()
+	if ui_root != null:
+		ui_root.set_time_text(_get_time_hud_text())
+		ui_root.set_status_text("Room %d  %s" % [current_room_index + 1, _get_build_mode_name()])
 
 
 func _toggle_console() -> void:

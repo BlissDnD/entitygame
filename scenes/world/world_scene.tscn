@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/world/world_scene.gd" id="1_world_scene"]
 [ext_resource type="PackedScene" path="res://entity/interactable/crash_ship/crash_ship.tscn" id="2_crash_ship"]
 [ext_resource type="PackedScene" path="res://ui/debug/godmode_panel.tscn" id="3_godmode_panel"]
+[ext_resource type="PackedScene" path="res://ui/root/ui_root.tscn" id="4_ui_root"]
 
 [node name="world_scene" type="Node2D"]
 script = ExtResource("1_world_scene")
@@ -41,11 +42,6 @@ placeholder_text = "godmode 1, equip_mining_tool, print_backpack"
 
 [node name="godmode_panel" parent="console_layer" instance=ExtResource("3_godmode_panel")]
 
-[node name="time_hud_label" type="Label" parent="console_layer"]
-offset_left = 344.0
-offset_top = 16.0
-offset_right = 444.0
-offset_bottom = 38.0
-text = "H00 DAY"
+[node name="UIRoot" parent="." instance=ExtResource("4_ui_root")]
 
 [connection signal="text_submitted" from="console_layer/console_panel/console_input" to="." method="_on_console_input_text_submitted"]

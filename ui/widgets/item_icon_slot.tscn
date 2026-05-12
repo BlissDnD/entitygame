@@ -1,0 +1,39 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/widgets/item_icon_slot.gd" id="1_item_icon_slot"]
+[ext_resource type="Theme" path="res://ui/themes/default_ui_theme.tres" id="2_theme"]
+
+[node name="item_icon_slot" type="PanelContainer"]
+custom_minimum_size = Vector2(28, 28)
+theme = ExtResource("2_theme")
+script = ExtResource("1_item_icon_slot")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="Stack" type="Control" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="icon_rect" type="TextureRect" parent="MarginContainer/Stack"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch_mode = 5
+
+[node name="fallback_label" type="Label" parent="MarginContainer/Stack"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "-"
+horizontal_alignment = 1
+vertical_alignment = 1

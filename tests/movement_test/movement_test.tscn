@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://tests/movement_test/movement_test_player.gd" id="1_movement_player"]
+[ext_resource type="PackedScene" path="res://ui/root/ui_root.tscn" id="2_ui_root"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(32, 32)
@@ -38,3 +39,5 @@ polygon = PackedVector2Array(-320, -16, 320, -16, 320, 16, -320, 16)
 
 [node name="collision_shape_2d" type="CollisionShape2D" parent="floor"]
 shape = SubResource("RectangleShape2D_floor")
+
+[node name="UIRoot" parent="." instance=ExtResource("2_ui_root")]

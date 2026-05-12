@@ -1,0 +1,27 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/widgets/keybind_hint.gd" id="1_keybind_hint"]
+[ext_resource type="Theme" path="res://ui/themes/default_ui_theme.tres" id="2_theme"]
+
+[node name="keybind_hint" type="PanelContainer"]
+custom_minimum_size = Vector2(72, 22)
+theme = ExtResource("2_theme")
+script = ExtResource("1_keybind_hint")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="icon_rect" type="TextureRect" parent="HBoxContainer"]
+visible = false
+custom_minimum_size = Vector2(16, 16)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="key_label" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Key"
+
+[node name="text_label" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Hint"

@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/hud/cursor_state_widget.gd" id="1_cursor_state_widget"]
+[ext_resource type="Theme" path="res://ui/themes/default_ui_theme.tres" id="2_theme"]
+
+[node name="CursorStateWidget" type="PanelContainer"]
+custom_minimum_size = Vector2(92, 28)
+theme = ExtResource("2_theme")
+script = ExtResource("1_cursor_state_widget")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="title_label" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "Cursor"
+
+[node name="cursor_label" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+text = "HAND"
