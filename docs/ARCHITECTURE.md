@@ -61,6 +61,10 @@ Reusable debug UI lives under `ui/debug/`.
 - Debug UI must not directly mutate gameplay systems or become runtime ownership for mining, inventory, equipment, backpack, sun-cycle, or world-law data.
 - `scenes/debug/godmode_world.tscn` instances the real `scenes/world/world_scene.tscn` with `starts_in_godmode = true`; it must not own a separate world simulation.
 
+## Editor-Facing Components
+
+Backend/domain logic remains in `systems/`. Scene actors and thin editor-facing Node wrappers live under `entity/` and `entity/components/`. See `docs/editor_component_layer.md`.
+
 ## Gravity Fields
 
 - `systems/world/gravity_field_system.gd` and `gravity_field_data.gd` provide local gravity-field test data for the playable world runtime.
