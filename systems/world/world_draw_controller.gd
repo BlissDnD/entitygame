@@ -42,7 +42,6 @@ func draw_world(target: Node2D, context: Dictionary) -> void:
 		_draw_drop_tooltip(target, context)
 
 	_draw_room_transition_arrow(target, context)
-	_draw_room_tooltip(target, context)
 
 	if context.has_won:
 		target.draw_rect(Rect2(view_origin, view_size), Color(0.18, 0.9, 0.24, 0.78), true)
@@ -114,45 +113,6 @@ func _draw_room_transition_arrow(target: Node2D, context: Dictionary) -> void:
 
 	if not arrow_points.is_empty():
 		target.draw_colored_polygon(arrow_points, GameplayTuningClass.ROOM_TRANSITION_ARROW_COLOR)
-
-
-func _draw_room_tooltip(target: Node2D, context: Dictionary) -> void:
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-
-	var font_size: int = ThemeDB.fallback_font_size
-	var tooltip_text: String = "Room %d / %d" % [
-		context.room_number,
-		context.display_room_count
-	]
-	tooltip_text += "  %s H%02d" % [
-		context.room_time_state_name,
-		context.current_hour
-	]
-	var text_size: Vector2 = font.get_string_size(tooltip_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size)
-	var view_origin: Vector2 = context.view_origin
-	var view_size: Vector2 = context.view_size
-	var padding: Vector2 = Vector2(8.0, 5.0)
-	var tooltip_rect: Rect2 = Rect2(
-		Vector2(
-			view_origin.x + (view_size.x - text_size.x - (padding.x * 2.0)) * 0.5,
-			view_origin.y + 10.0
-		),
-		text_size + (padding * 2.0)
-	)
-
-	target.draw_rect(tooltip_rect, Color(0.08, 0.09, 0.12, 0.9), true)
-	target.draw_rect(tooltip_rect, GameplayTuningClass.ROOM_EDGE_COLOR, false, 1.0)
-	target.draw_string(
-		font,
-		tooltip_rect.position + Vector2(padding.x, padding.y + font_size),
-		tooltip_text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		Color(1.0, 1.0, 1.0, 1.0)
-	)
 
 
 func _draw_sun(target: Node2D, context: Dictionary) -> void:
