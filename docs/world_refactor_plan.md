@@ -8,6 +8,14 @@
    - File: `systems/world/world_background_controller.gd`
    - Owns current/target background color, fade interpolation, fade timing, and fade debug logs.
    - `world_scene.gd` still owns the sun cycle, room state, drawing lifecycle, and redraw decisions.
+2. `BuildModeRuntime`
+   - File: `systems/build/build_mode_runtime.gd`
+   - Owns build mode state, gravity field preview bounds, gravity field/point placement requests, and pending gravity strength selection.
+   - `world_scene.gd` still owns input routing, drawing calls, GodMode popup orchestration, and redraw/UI refresh decisions.
+3. `InventoryRuntime`
+   - File: `systems/inventory/inventory_runtime.gd`
+   - Owns selected material state, material pickup acceptance, inventory capacity tuning, backpack equip/unequip coordination, and inventory/equipment debug printing.
+   - `world_scene.gd` still owns world item spawning, hover targeting, UI refreshes, and redraw decisions.
 
 ## Possible Next Extractions
 
@@ -18,6 +26,7 @@
 5. `WorldMiningController`
 6. `WorldPlayerController`
 7. `WorldRenderController`
+8. `GravityRuntime`
 
 ## Rules
 

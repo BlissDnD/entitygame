@@ -12,6 +12,7 @@ const WorldRendererClass = preload("res://systems/world/world_renderer.gd")
 const RuntimeDebugSettingsClass = preload("res://systems/world/runtime_debug_settings.gd")
 const WorldBackgroundControllerClass = preload("res://systems/world/world_background_controller.gd")
 const InventoryDataClass = preload("res://systems/inventory/inventory_data.gd")
+const InventoryRuntimeClass = preload("res://systems/inventory/inventory_runtime.gd")
 const ItemTypesClass = preload("res://systems/items/item_types.gd")
 const EquipmentSlotClass = preload("res://systems/equipment/equipment_slot.gd")
 const PlayerEquipmentClass = preload("res://systems/equipment/player_equipment.gd")
@@ -21,6 +22,7 @@ const CursorBehaviorDefinitionClass = preload("res://systems/cursor/cursor_behav
 const PlanetSunCycleClass = preload("res://systems/time/planet_sun_cycle.gd")
 const PlaceablePlacementServiceClass = preload("res://systems/placeables/placeable_placement_service.gd")
 const GravityFieldSystemClass = preload("res://systems/world/gravity_field_system.gd")
+const BuildModeRuntimeClass = preload("res://systems/build/build_mode_runtime.gd")
 const PrototypeTreeDefinition = preload("res://resources/placeables/prototype_tree.tres")
 const AtlasWorkerSpawnPointScene = preload("res://entity/npc/atlas_worker/atlas_worker_spawn_point.tscn")
 const BackpackWorldItemScene = preload("res://entity/items/backpack_world_item.tscn")
@@ -39,13 +41,6 @@ const SURFACE_PROP_ROCK: String = "rock"
 const MAX_ATLAS_WORKER_FOLLOWERS: int = 10
 const BACKGROUND_FADE_DURATION: float = 1.4
 const SUN_VISUAL_RADIUS: float = 20.0
-const GRAVITY_FIELD_STRENGTH_MILESTONES = [180.0, 320.0, 520.0, 760.0, 980.0]
-
-enum BuildMode {
-	NONE,
-	GRAVITY_FIELD,
-	GRAVITY_POINT,
-}
 
 @export var starts_in_godmode: bool = false
 
@@ -60,6 +55,7 @@ var inventory_data = InventoryDataClass.new(
 )
 var player_equipment = PlayerEquipmentClass.new()
 var backpack_container = BackpackContainerClass.new()
+var inventory_runtime = InventoryRuntimeClass.new(inventory_data, player_equipment, backpack_container)
 var player_cursor_controller = PlayerCursorControllerClass.new()
 var planet_sun_cycle = PlanetSunCycleClass.new()
 var player_world_position: Vector2 = GameplayTuningClass.PLAYER_SPAWN_WORLD_POSITION
@@ -69,7 +65,6 @@ var mining_center_cell: Vector2i = Vector2i.ZERO
 var debug_enabled: bool = GameplayTuningClass.DEBUG_OVERLAY_DEFAULT_ENABLED
 var has_inspected_cell: bool = false
 var inspected_cell: Vector2i = Vector2i.ZERO
-var selected_material_id: int = GameplayTuningClass.DEFAULT_SELECTED_MATERIAL
 var block_mining_until_left_released: bool = false
 var hovered_drop_index: int = -1
 var last_render_stats: Dictionary = {}
@@ -83,8 +78,7 @@ var room_npc_container_list: Array[Node2D] = []
 var room_gravity_field_system_list: Array[GravityFieldSystem] = []
 var active_atlas_workers: Array[AtlasWorker] = []
 var gravity_field_system: GravityFieldSystem = GravityFieldSystemClass.new()
-var current_build_mode: int = BuildMode.NONE
-var pending_gravity_strength_field: GravityFieldData = null
+var build_mode_runtime = BuildModeRuntimeClass.new(gravity_field_system)
 var current_room_index: int = 0
 var room_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var has_won: bool = false
@@ -795,11 +789,11 @@ func _draw_gravity_fields() -> void:
 			draw_circle(field.gravity_point, 5.0, Color(0.25, 0.95, 1.0, 0.95))
 			draw_line(field.bounds.get_center(), field.gravity_point, Color(0.25, 0.95, 1.0, 0.45), 1.0)
 
-	if current_build_mode == BuildMode.GRAVITY_FIELD:
+	if build_mode_runtime.current_build_mode == BuildModeRuntimeClass.BuildMode.GRAVITY_FIELD:
 		var preview_rect: Rect2 = _get_gravity_field_preview_rect()
 		draw_rect(preview_rect, Color(0.35, 0.7, 1.0, 0.14), true)
 		draw_rect(preview_rect, Color(0.35, 0.7, 1.0, 0.88), false, 2.0)
-	elif current_build_mode == BuildMode.GRAVITY_POINT:
+	elif build_mode_runtime.current_build_mode == BuildModeRuntimeClass.BuildMode.GRAVITY_POINT:
 		var point_position: Vector2 = _get_cell_center_world(mining_center_cell)
 		var valid_color: Color = Color(0.2, 1.0, 0.75, 0.95)
 		if gravity_field_system.find_field_at(point_position) == null:
@@ -992,7 +986,7 @@ func _draw_labels() -> void:
 		_get_traversal_index(mining_center_cell)
 	]
 	var inventory_text: String = "selected %s inv %d/%d weight %.1f/%.1f drops %d dirt %d stone %d" % [
-		_get_cell_type_name(selected_material_id),
+		_get_cell_type_name(inventory_runtime.selected_material_id),
 		inventory_data.get_total_count(),
 		inventory_data.max_capacity,
 		inventory_data.get_total_weight(),
@@ -1255,32 +1249,17 @@ func _try_interact_with_backpack_world_item() -> bool:
 
 
 func _equip_backpack_item(item_definition: ItemDefinition, log_prefix: String) -> bool:
-	if item_definition == null:
-		return false
-	if not item_definition.is_backpack or not item_definition.can_be_equipped:
-		return false
-	if player_equipment.get_equipped_backpack() != null:
-		print("%s Cannot equip backpack: backpack slot already occupied" % [log_prefix])
-		return false
-	if not player_equipment.equip_item(item_definition):
-		return false
-
-	if item_definition.backpack_definition is BackpackDefinition:
-		backpack_container.equip_backpack(item_definition.backpack_definition)
-	print("%s Backpack equipped: %s" % [log_prefix, item_definition.id])
-	_refresh_godmode_ui()
-	return true
+	var did_equip: bool = inventory_runtime.equip_backpack_item(item_definition, log_prefix)
+	if did_equip:
+		_refresh_godmode_ui()
+	return did_equip
 
 
 func _drop_equipped_backpack() -> void:
-	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
+	var equipped_backpack: ItemDefinition = inventory_runtime.unequip_backpack_for_drop()
 	if equipped_backpack == null:
-		print("[Backpack] No backpack equipped")
 		return
 
-	player_equipment.unequip_item(EquipmentSlotClass.SlotType.BACKPACK)
-	# TODO: Transfer BackpackContainer contents into dropped world item data once item containers persist.
-	backpack_container.unequip_backpack()
 	_spawn_backpack_world_item(_get_backpack_drop_position(), equipped_backpack)
 	print("[Backpack] Backpack dropped")
 	_refresh_godmode_ui()
@@ -2045,7 +2024,7 @@ func _should_show_place_cursor() -> bool:
 
 
 func _is_gravity_build_mode_active() -> bool:
-	return current_build_mode == BuildMode.GRAVITY_FIELD or current_build_mode == BuildMode.GRAVITY_POINT
+	return build_mode_runtime.is_gravity_build_mode_active()
 
 
 func _is_player_inside_gravity_field() -> bool:
@@ -2060,7 +2039,7 @@ func _get_gravity_acceleration_at_player() -> Vector2:
 
 
 func _set_build_mode(next_build_mode: int) -> void:
-	current_build_mode = next_build_mode
+	build_mode_runtime.set_build_mode(next_build_mode)
 	block_mining_until_left_released = true
 	print("[GodModeGravity] build mode: %s" % _get_build_mode_name())
 	_update_time_hud()
@@ -2069,67 +2048,42 @@ func _set_build_mode(next_build_mode: int) -> void:
 
 
 func _clear_build_mode() -> void:
-	if current_build_mode == BuildMode.NONE:
+	if not build_mode_runtime.clear_build_mode():
 		return
-	current_build_mode = BuildMode.NONE
 	block_mining_until_left_released = true
 	_update_time_hud()
 	_refresh_godmode_ui()
 
 
 func _handle_gravity_build_click() -> void:
-	if current_build_mode == BuildMode.GRAVITY_FIELD:
-		var field_bounds: Rect2 = _get_gravity_field_preview_rect()
-		gravity_field_system.create_field(field_bounds, 0.0)
-		print("[GodModeGravity] gravity field placed: %s" % field_bounds)
-		_clear_build_mode()
-		_refresh_godmode_ui()
-		return
-
-	if current_build_mode == BuildMode.GRAVITY_POINT:
-		var point_position: Vector2 = _get_cell_center_world(mining_center_cell)
-		var field: GravityFieldData = gravity_field_system.set_gravity_point(point_position, _get_gravity_strength_for_level(1))
-		if field != null:
-			pending_gravity_strength_field = field
-			print("[GodModeGravity] gravity point set: %s" % point_position)
-			_clear_build_mode()
+	var click_result: int = build_mode_runtime.handle_gravity_build_click(mining_center_cell, _get_ordered_preview_cells())
+	match click_result:
+		BuildModeRuntimeClass.BuildClickResult.GRAVITY_FIELD_PLACED:
+			print("[GodModeGravity] gravity field placed: %s" % _get_gravity_field_preview_rect())
+			block_mining_until_left_released = true
+			_update_time_hud()
+			_refresh_godmode_ui()
+		BuildModeRuntimeClass.BuildClickResult.GRAVITY_POINT_SET:
+			print("[GodModeGravity] gravity point set: %s" % _get_cell_center_world(mining_center_cell))
+			block_mining_until_left_released = true
+			_update_time_hud()
 			godmode_panel.show_gravity_strength_popup()
-		else:
+			_refresh_godmode_ui()
+		BuildModeRuntimeClass.BuildClickResult.GRAVITY_POINT_FAILED:
 			print("[GodModeGravity] Cannot place gravity point outside a gravity field")
-		_refresh_godmode_ui()
+			_refresh_godmode_ui()
 
 
 func _get_gravity_field_preview_rect() -> Rect2:
-	var preview_cells: Array[Vector2i] = _get_ordered_preview_cells()
-	if preview_cells.is_empty():
-		var cell_size: Vector2 = Vector2(WorldConstantsClass.CELL_SIZE)
-		return Rect2(WorldUtilsClass.cell_to_world(mining_center_cell), cell_size)
-
-	var min_cell: Vector2i = preview_cells[0]
-	var max_cell: Vector2i = preview_cells[0]
-	for cell_position in preview_cells:
-		min_cell.x = mini(min_cell.x, cell_position.x)
-		min_cell.y = mini(min_cell.y, cell_position.y)
-		max_cell.x = maxi(max_cell.x, cell_position.x)
-		max_cell.y = maxi(max_cell.y, cell_position.y)
-
-	var top_left: Vector2 = WorldUtilsClass.cell_to_world(min_cell)
-	var bottom_right: Vector2 = WorldUtilsClass.cell_to_world(max_cell + Vector2i.ONE)
-	return Rect2(top_left, bottom_right - top_left)
+	return build_mode_runtime.get_gravity_field_preview_rect(mining_center_cell, _get_ordered_preview_cells())
 
 
 func _get_build_mode_name() -> String:
-	match current_build_mode:
-		BuildMode.GRAVITY_FIELD:
-			return "GRAVITY_FIELD"
-		BuildMode.GRAVITY_POINT:
-			return "GRAVITY_POINT"
-		_:
-			return "NONE"
+	return build_mode_runtime.get_build_mode_name()
 
 
 func _get_gravity_strength_for_level(level_index: int) -> float:
-	return float(GRAVITY_FIELD_STRENGTH_MILESTONES[clampi(level_index, 0, GRAVITY_FIELD_STRENGTH_MILESTONES.size() - 1)])
+	return build_mode_runtime.get_gravity_strength_for_level(level_index)
 
 
 func _can_mine_with_equipped_tool() -> bool:
@@ -2193,22 +2147,22 @@ func _try_place_preview_cells() -> bool:
 	if not _is_mining_target_in_range():
 		return false
 
-	if not inventory_data.has_material(selected_material_id):
+	if not inventory_data.has_material(inventory_runtime.selected_material_id):
 		return false
 
 	var placed_any: bool = false
 
 	for cell_position in _get_ordered_preview_cells():
-		if not inventory_data.has_material(selected_material_id):
+		if not inventory_data.has_material(inventory_runtime.selected_material_id):
 			break
 
 		if not _can_place_cell(cell_position):
 			continue
 
-		if inventory_data.remove_material(selected_material_id, 1) <= 0:
+		if inventory_data.remove_material(inventory_runtime.selected_material_id, 1) <= 0:
 			break
 
-		world_data.set_cell(cell_position, selected_material_id)
+		world_data.set_cell(cell_position, inventory_runtime.selected_material_id)
 		world_data.remove_damage_progress(cell_position)
 		placed_any = true
 
@@ -2222,7 +2176,7 @@ func _can_place_any_preview_cells() -> bool:
 	if not _is_mining_target_in_range():
 		return false
 
-	if not inventory_data.has_material(selected_material_id):
+	if not inventory_data.has_material(inventory_runtime.selected_material_id):
 		return false
 
 	for cell_position in _get_ordered_preview_cells():
@@ -2243,27 +2197,12 @@ func _can_place_cell(cell_position: Vector2i) -> bool:
 
 
 func _try_pick_up_hovered_drops() -> bool:
-	if not _has_hovered_drop():
-		return false
-
-	var drop_entry: Dictionary = item_drop_data.get_drop_at_index(hovered_drop_index)
-	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
-	var amount: int = int(drop_entry.get("amount", 0))
-	var accepted_amount: int = 0
-	if item_kind == "material":
-		accepted_amount = inventory_data.add_material(item_id, amount)
-	var picked_any: bool = false
-
-	if accepted_amount > 0:
-		item_drop_data.remove_amount_at_index(hovered_drop_index, accepted_amount)
+	var picked_any: bool = inventory_runtime.try_pick_up_drop(item_drop_data, hovered_drop_index)
+	if picked_any:
 		hovered_drop_index = item_drop_data.find_nearest_drop_index(
 			get_global_mouse_position(),
 			GameplayTuningClass.DROPPED_ITEM_HOVER_RADIUS_PIXELS
 		)
-		picked_any = true
-
-	if picked_any:
 		_refresh_godmode_ui()
 
 	return picked_any
@@ -2280,83 +2219,34 @@ func _player_contains_cell(cell_position: Vector2i) -> bool:
 
 
 func _cycle_selected_material(direction: int) -> void:
-	var material_ids: Array[int] = WorldMaterialsClass.get_placeable_material_ids()
-	if material_ids.is_empty():
-		return
-
-	var current_index: int = material_ids.find(selected_material_id)
-	if current_index == -1:
-		selected_material_id = material_ids[0]
+	if inventory_runtime.cycle_selected_material(direction):
 		_refresh_godmode_ui()
-		return
-
-	var next_index: int = posmod(current_index + direction, material_ids.size())
-	selected_material_id = material_ids[next_index]
-	_refresh_godmode_ui()
 
 
 func _get_selected_material_color() -> Color:
-	return WorldMaterialsClass.get_debug_color(selected_material_id)
+	return inventory_runtime.get_selected_material_color()
 
 
 func _get_drop_item_name(drop_entry: Dictionary) -> String:
-	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
-	if item_kind == "material":
-		return _get_cell_type_name(item_id)
-
-	return "ITEM"
+	return inventory_runtime.get_drop_item_name(drop_entry)
 
 
 func _get_drop_item_color(drop_entry: Dictionary) -> Color:
-	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
-	if item_kind == "material":
-		return WorldMaterialsClass.get_debug_color(item_id)
-
-	return Color(1.0, 1.0, 1.0, 1.0)
+	return inventory_runtime.get_drop_item_color(drop_entry)
 
 
 func _get_dominant_inventory_color() -> Color:
-	var material_ids: Array[int] = inventory_data.get_material_ids()
-	if material_ids.is_empty():
-		return GameplayTuningClass.DIRT_DEBUG_COLOR
-
-	var dominant_material_id: int = selected_material_id
-	var dominant_count: int = -1
-	var blended_color: Color = Color(0.0, 0.0, 0.0, 0.0)
-	var total_count: int = 0
-
-	for material_id in material_ids:
-		var material_count: int = inventory_data.get_material_count(material_id)
-		total_count += material_count
-		if material_count > dominant_count:
-			dominant_count = material_count
-			dominant_material_id = material_id
-
-	if total_count <= 0:
-		return WorldMaterialsClass.get_debug_color(dominant_material_id)
-
-	for material_id in material_ids:
-		var material_count: int = inventory_data.get_material_count(material_id)
-		var weight: float = float(material_count) / float(total_count)
-		var material_color: Color = WorldMaterialsClass.get_debug_color(material_id)
-		blended_color.r += material_color.r * weight
-		blended_color.g += material_color.g * weight
-		blended_color.b += material_color.b * weight
-		blended_color.a = 1.0
-
-	return blended_color
+	return inventory_runtime.get_dominant_inventory_color()
 
 
 func _set_inventory_capacity(capacity: int) -> void:
-	inventory_data.set_capacity(clampi(capacity, GameplayTuningClass.INVENTORY_CAPACITY_MIN, GameplayTuningClass.INVENTORY_CAPACITY_MAX))
+	inventory_runtime.set_inventory_capacity(capacity)
 	_refresh_godmode_ui()
 	queue_redraw()
 
 
 func _set_inventory_weight_capacity(weight_capacity: float) -> void:
-	inventory_data.set_weight_capacity(clampf(weight_capacity, GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY_MIN, GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY_MAX))
+	inventory_runtime.set_inventory_weight_capacity(weight_capacity)
 	_refresh_godmode_ui()
 	queue_redraw()
 
@@ -2465,7 +2355,7 @@ func _build_godmode_snapshot() -> Dictionary:
 		"mining_shape": debug_settings.mining_shape,
 		"square_shape": WorldConstantsClass.ToolShape.SQUARE,
 		"circle_shape": WorldConstantsClass.ToolShape.CIRCLE,
-		"selected_material_text": "Inventory selected %s" % _get_cell_type_name(selected_material_id),
+		"selected_material_text": "Inventory selected %s" % _get_cell_type_name(inventory_runtime.selected_material_id),
 		"inventory_text": "Inventory %d/%d  Weight %.1f/%.1f  Drops %d" % [
 			inventory_data.get_total_count(),
 			inventory_data.max_capacity,
@@ -2688,35 +2578,16 @@ func _handle_godmode_item_command(command: String) -> bool:
 
 
 func _godmode_add_backpack_stack(item_definition: ItemDefinition, amount: int) -> void:
-	if backpack_container.backpack_definition == null:
-		print("[GodModeItems] Cannot add stack: no backpack equipped")
-		return
-	if backpack_container.add_placeholder_stack(item_definition, amount):
-		print("[GodModeItems] Added stack: %s x%d" % [item_definition.id, amount])
+	inventory_runtime.add_backpack_stack(item_definition, amount)
 	_refresh_godmode_ui()
 
 
 func _print_equipment_state() -> void:
-	var equipped_tool: ItemDefinition = player_equipment.get_equipped_tool()
-	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
-	print("[GodModeItems] Equipment state:")
-	print("  tool: %s" % [equipped_tool.id if equipped_tool != null else "empty"])
-	print("  backpack: %s" % [equipped_backpack.id if equipped_backpack != null else "empty"])
-	print("  cursor: %s" % [player_cursor_controller.get_current_cursor_behavior_name()])
+	inventory_runtime.print_equipment_state(player_cursor_controller.get_current_cursor_behavior_name())
 
 
 func _print_backpack_contents() -> void:
-	if backpack_container.backpack_definition == null:
-		print("[GodModeItems] Backpack contents: no backpack equipped")
-		return
-
-	print("[GodModeItems] Backpack contents:")
-	if backpack_container.item_stacks.is_empty():
-		print("  empty")
-		return
-
-	for item_stack in backpack_container.item_stacks:
-		print("  %s x%d" % [item_stack.item_definition.id, item_stack.amount])
+	inventory_runtime.print_backpack_contents()
 
 
 func _on_godmode_mining_power_changed(value: float) -> void:
@@ -2776,22 +2647,20 @@ func _on_print_backpack_button_pressed() -> void:
 
 
 func _on_gravity_field_mode_requested() -> void:
-	_set_build_mode(BuildMode.GRAVITY_FIELD)
+	_set_build_mode(BuildModeRuntimeClass.BuildMode.GRAVITY_FIELD)
 
 
 func _on_gravity_point_mode_requested() -> void:
-	_set_build_mode(BuildMode.GRAVITY_POINT)
+	_set_build_mode(BuildModeRuntimeClass.BuildMode.GRAVITY_POINT)
 
 
 func _on_gravity_strength_selected(level_index: int) -> void:
-	if pending_gravity_strength_field == null:
+	var strength: float = build_mode_runtime.select_pending_gravity_strength(level_index)
+	if strength < 0.0:
 		print("[GodModeGravity] No pending gravity point to tune")
 		return
 
-	var strength: float = _get_gravity_strength_for_level(level_index)
-	pending_gravity_strength_field.strength = strength
 	print("[GodModeGravity] gravity point strength: level %d/5 %.0f" % [level_index + 1, strength])
-	pending_gravity_strength_field = null
 	_refresh_godmode_ui()
 	queue_redraw()
 
