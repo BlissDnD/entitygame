@@ -80,6 +80,42 @@
    - File: `systems/world/world_input_interaction_controller.gd`
    - Owns unhandled input routing for console toggle, interact/drop actions, world-item pickup, gravity build clicks, placement clicks, inspect clicks, and selected-material cycling.
    - `world_scene.gd` still owns the authoritative runtime fields and passes explicit scene callbacks, room/runtime state, and redraw hooks into the controller.
+20. `WorldRuntime`, `WorldSceneRefs`, `WorldBootstrap`
+   - Files: `systems/world/world_runtime.gd`, `systems/world/world_scene_refs.gd`, `systems/world/world_bootstrap.gd`
+   - Introduce the next composition-root layer: runtime state container groundwork, scene-node reference capture, and `_ready()` bootstrap orchestration extraction.
+   - `world_scene.gd` still keeps incremental compatibility aliases for existing state usage, but the setup flow no longer lives inline in the scene script.
+21. `WorldTickPipeline`
+   - File: `systems/world/world_tick_pipeline.gd`
+   - Owns `_process()` orchestration flow for redraw decisions, transition-lock ticking, hover updates, item-drop ticking, camera tracking, and the high-level player/mining/transition tick order.
+   - `world_scene.gd` still owns the underlying update callbacks and runtime fields, but the frame pipeline no longer lives inline in the scene script.
+22. `WorldQueryFacade`
+   - File: `systems/world/world_query_facade.gd`
+   - Owns room/world/player/view query helpers such as room rects, void-fall rects, camera centering, viewport sizing, current-room queries, player rect/center/ground queries, and cell/world size conversions.
+   - `world_scene.gd` keeps a few compatibility wrappers for callback-heavy code paths, but the helper math/query logic is no longer implemented inline.
+23. `WorldBuildMiningFacade`
+   - File: `systems/world/world_build_mining_facade.gd`
+   - Owns mining/build preview queries, traversal ordering, placement validation, build-mode queries, gravity build interaction delegation, and mining/build naming helpers.
+   - `world_scene.gd` still exposes a few callback bridges for UI and controller compatibility, but the mining/build helper block is no longer implemented inline.
+24. `WorldDrawPipeline`
+   - File: `systems/world/world_draw_pipeline.gd`
+   - Owns `_draw()` orchestration and draw-context assembly handoff to `WorldDrawController`.
+   - `world_scene.gd` now just hands the pipeline the scene callbacks/runtime values instead of assembling the full draw call inline.
+25. `WorldStateSyncFacade`, `WorldSupportFacade`
+   - Files: `systems/world/world_state_sync_facade.gd`, `systems/world/world_support_facade.gd`
+   - Own state/write-back bridge helpers, crash-ship/backpack support helpers, room visibility updates, spawn support, player-follow support, and view-resolution support.
+   - These keep compatibility with the current incremental refactor while moving more scene-local glue out of `world_scene.gd`.
+26. `WorldSceneContextFactory`
+   - File: `systems/world/world_scene_context_factory.gd`
+   - Owns the large scene-level context assembly for `_ready()`, `_process()`, `_unhandled_input()`, and `_draw()`.
+   - `world_scene.gd` still owns the orchestration entrypoints and gameplay helper methods, but no longer keeps the large inline dictionary-building blocks for those pipelines.
+27. `Main` Scene Groundwork
+   - Files: `scenes/main/main.tscn`, `scenes/main/main.gd`
+   - Introduces a top-level `main` scene with separate `ui` and `world` children, and a small loader that instantiates the active level scene under `world`.
+   - `world_scene.tscn` still contains its own HUD/debug UI for now, but the project now has the intended root architecture for moving menus/HUD spawning upward without redesigning level logic.
+28. `Main` UI Mounting
+   - File: `scenes/main/main.gd`
+   - The active level now mounts its UI nodes (`console_layer`, `UIRoot`) under `main/ui` at runtime, while the level scene itself remains under `main/world`.
+   - This preserves current gameplay/UI behavior while shifting actual UI tree ownership upward into the root scene architecture.
 
 ## Possible Next Extractions
 

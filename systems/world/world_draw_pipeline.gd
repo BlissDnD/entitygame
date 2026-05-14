@@ -1,0 +1,77 @@
+class_name WorldDrawPipeline
+extends RefCounted
+
+
+func draw(target: Node2D, context: Dictionary) -> Dictionary:
+	var view_origin: Vector2 = context.get_view_origin_world.call()
+	var view_size: Vector2 = context.get_viewport_world_size.call()
+	var ordered_preview_cells: Array[Vector2i] = context.get_ordered_preview_cells.call()
+	var draw_stats_ref := {"value": context.last_render_stats}
+
+	context.world_draw_controller.draw_world(target, context.world_draw_context_builder.build_context({
+		"background_controller": context.background_controller,
+		"build_mode_name": context.get_build_mode_name.call(),
+		"can_place_any_preview_cells": context.can_place_any_preview_cells.call(ordered_preview_cells),
+		"can_place_cell": context.can_place_cell,
+		"current_build_mode": context.current_build_mode,
+		"current_hour": context.current_hour,
+		"current_room_index": context.current_room_index,
+		"current_room_surface_cell_y": context.current_room_surface_cell_y,
+		"current_room_surface_props": context.current_room_surface_props,
+		"debug_enabled": context.debug_enabled,
+		"display_room_count": context.display_room_count,
+		"get_cell_center_world": context.get_cell_center_world,
+		"get_cell_type_name": context.get_cell_type_name,
+		"get_dominant_inventory_color": context.get_dominant_inventory_color,
+		"get_drop_item_color": context.get_drop_item_color,
+		"get_drop_item_name": context.get_drop_item_name,
+		"get_material_tags": context.get_material_tags,
+		"get_mining_resistance": context.get_mining_resistance,
+		"get_selected_material_color": context.get_selected_material_color,
+		"get_shape_name": context.get_shape_name,
+		"get_traversal_index": context.get_traversal_index,
+		"get_world_size_from_cells": context.get_world_size_from_cells,
+		"godmode_enabled": context.godmode_enabled,
+		"gravity_field_build_mode": context.gravity_field_build_mode,
+		"gravity_field_preview_rect": context.get_gravity_field_preview_rect.call(ordered_preview_cells),
+		"gravity_field_system": context.gravity_field_system,
+		"gravity_point_build_mode": context.gravity_point_build_mode,
+		"has_inspected_cell": context.has_inspected_cell,
+		"has_won": context.has_won,
+		"hovered_cell": context.hovered_cell,
+		"hovered_drop_index": context.hovered_drop_index,
+		"inspected_cell": context.inspected_cell,
+		"inventory_data": context.inventory_data,
+		"is_mining_target_in_range": context.is_mining_target_in_range.call(),
+		"item_drop_data": context.item_drop_data,
+		"last_render_stats": draw_stats_ref,
+		"mining_center_cell": context.mining_center_cell,
+		"mining_power": context.mining_power,
+		"mining_radius": context.mining_radius,
+		"mining_shape": context.mining_shape,
+		"ordered_preview_cells": ordered_preview_cells,
+		"player_center_world": context.player_center_world,
+		"player_world_position": context.player_world_position,
+		"room_edge_bottom": context.room_edge_bottom,
+		"room_edge_left": context.room_edge_left,
+		"room_edge_none": context.room_edge_none,
+		"room_edge_right": context.room_edge_right,
+		"room_edge_top": context.room_edge_top,
+		"room_number": context.room_number,
+		"room_rect": context.room_rect,
+		"room_time_state_name": context.room_time_state_name,
+		"room_transition_edge": context.room_transition_edge,
+		"selected_material_id": context.selected_material_id,
+		"should_show_mining_cone_cursor": context.should_show_mining_cone_cursor.call(),
+		"should_show_place_cursor": context.should_show_place_cursor.call(),
+		"sun_visual_radius": context.sun_visual_radius,
+		"surface_prop_bush": context.surface_prop_bush,
+		"surface_prop_rock": context.surface_prop_rock,
+		"time_manager": context.time_manager,
+		"view_origin": view_origin,
+		"view_size": view_size,
+		"world_data": context.world_data,
+		"world_renderer": context.world_renderer,
+	}))
+
+	return {"last_render_stats": draw_stats_ref.value}
