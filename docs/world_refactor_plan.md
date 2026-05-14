@@ -68,6 +68,18 @@
    - File: `systems/world/world_generation_surface_controller.gd`
    - Owns room generation pipeline setup, room-size generation, terrain fill generation, room container creation, surface prop generation, tree placement attempts, and protected-cell construction.
    - `world_scene.gd` still owns world reset orchestration, room registration into `WorldRoomController`, and spawn-point callback wiring.
+17. `GodModeUiController`
+   - File: `systems/debug/godmode_ui_controller.gd`
+   - Owns GodMode panel signal wiring, console visibility flow, debug UI hit-testing, HUD refresh coordination, GodMode snapshot refresh orchestration, and debug command/button entrypoints.
+   - `world_scene.gd` still owns the underlying gameplay callbacks and runtime state, but no longer assembles the GodMode UI flow directly.
+18. `WorldRoomFlowController`
+   - File: `systems/world/world_room_flow_controller.gd`
+   - Owns active-room switch orchestration, room-transition flow, room-entry placement, transition collision resolution, void-fall handling, respawn flow, and world-boundary debug formatting.
+   - `world_scene.gd` still owns the authoritative runtime fields and passes explicit callbacks/state into the controller.
+19. `WorldInputInteractionController`
+   - File: `systems/world/world_input_interaction_controller.gd`
+   - Owns unhandled input routing for console toggle, interact/drop actions, world-item pickup, gravity build clicks, placement clicks, inspect clicks, and selected-material cycling.
+   - `world_scene.gd` still owns the authoritative runtime fields and passes explicit scene callbacks, room/runtime state, and redraw hooks into the controller.
 
 ## Possible Next Extractions
 

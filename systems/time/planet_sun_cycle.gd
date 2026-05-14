@@ -76,25 +76,37 @@ func advance(delta: float) -> bool:
 	return true
 
 
-func advance_one_hour() -> void:
-	current_time_minutes = fposmod(float(current_hour + 1) * 60.0, float(room_count) * 60.0)
-	var next_hour: int = int(floor(current_time_minutes / 60.0)) % room_count
-	if next_hour == current_hour:
+func set_hour(hour: int, force_refresh: bool = false) -> void:
+	if room_count <= 0:
+		return
+
+	var next_hour: int = posmod(hour, room_count)
+	if next_hour == current_hour and not force_refresh:
 		return
 
 	current_hour = next_hour
+	current_time_minutes = float(current_hour) * 60.0
+
 	hour_changed.emit(current_hour)
 	_update_sun_room_from_hour()
-	_recalculate_room_time_states(false)
-	print("[SunCycle] current hour %d sun room %d" % [current_hour, get_sun_room_index()])
+	_recalculate_room_time_states(force_refresh)
+
+	print("[SunCycle] current hour %d sun room %d" % [
+		current_hour,
+		get_sun_room_index()
+	])
+
+
+func advance_one_hour() -> void:
+	set_hour(current_hour + 1)
+
+
+func rewind_one_hour() -> void:
+	set_hour(current_hour - 1)
 
 
 func reset_to_midnight() -> void:
-	current_time_minutes = 0.0
-	current_hour = 0
-	_update_sun_room_from_hour()
-	_recalculate_room_time_states(false)
-	print("[SunCycle] reset to 12 AM; sun room %d" % get_sun_room_index())
+	set_hour(0, true)
 
 
 func get_current_hour() -> int:

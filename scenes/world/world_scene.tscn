@@ -55,5 +55,3 @@ placeholder_text = "godmode 1, equip_mining_tool, print_backpack"
 [node name="godmode_panel" parent="console_layer" instance=ExtResource("3_godmode_panel")]
 
 [node name="UIRoot" parent="." instance=ExtResource("4_ui_root")]
-
-[connection signal="text_submitted" from="console_layer/console_panel/console_input" to="." method="_on_console_input_text_submitted"]
