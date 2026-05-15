@@ -9,6 +9,9 @@ var operation_helpers = WorldSceneOperationHelpersClass.new()
 func build_ready_context(scene) -> Dictionary:
 	return {
 		"active_tool_profile": scene.active_tool_profile,
+		"placeable_placement_service": scene.placeable_placement_service,
+		"get_player_world_position": func() -> Vector2:
+			return scene.player_world_position,
 		"add_child_callback": Callable(scene, "add_child"),
 		"apply_camera_tracking": Callable(scene, "_apply_camera_tracking"),
 		"apply_view_resolution": func():

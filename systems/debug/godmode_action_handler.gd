@@ -105,12 +105,12 @@ func handle_item_command(command: String, context: Dictionary) -> Dictionary:
 				print("[GodModeItems] Cannot place vine seed: no placeable definition")
 				return _handled_result(true, false)
 
-			placement_service.place_object(
+			var placed = placement_service.place_object(
 				vine_seed.placeable_definition,
-				Vector2.ZERO
+				Vector2i(5, 5)
 			)
 
-			print("[GodModeItems] Placed vine seed")
+			print("[GodModeItems] Placed vine seed: ", placed)
 
 			return _handled_result(true, true)
 

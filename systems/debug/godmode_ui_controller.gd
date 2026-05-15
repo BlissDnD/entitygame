@@ -20,7 +20,7 @@ var time_manager: TimeManager = null
 var map_handler: MapHandler = null
 var world_draw_controller: WorldDrawController = null
 var item_registry: ItemRegistry = null
-var placeable_placement_service: PlaceablePlacementService = null
+var placeable_placement_service = null
 var get_player_world_position: Callable
 
 var queue_redraw_callback: Callable = Callable()
@@ -49,6 +49,7 @@ func configure(context: Dictionary) -> void:
 	console_panel = context.console_panel
 	console_input = context.console_input
 	godmode_panel = context.godmode_panel
+	placeable_placement_service = context.get("placeable_placement_service", null)
 	ui_root = context.ui_root
 	debug_settings = context.debug_settings
 	godmode_action_handler = context.godmode_action_handler
@@ -194,8 +195,8 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 	var command: String = new_text.strip_edges().to_lower()
 	var result: Dictionary = godmode_action_handler.handle_console_command(command, {
 		"backpack_container": backpack_container,
-		
 		"item_registry": item_registry,
+		"placeable_placement_service": placeable_placement_service,
 		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
 		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
 		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
@@ -246,6 +247,7 @@ func _run_godmode_item_ui_command(command: String) -> void:
 	var result: Dictionary = godmode_action_handler.handle_item_command(command, {
 		"backpack_container": backpack_container,
 		"item_registry": item_registry,
+		"placeable_placement_service": placeable_placement_service,
 		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
 		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
 		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
