@@ -139,6 +139,7 @@ var background_controller = WorldBackgroundControllerClass.new()
 var world_bootstrap = WorldBootstrapClass.new()
 var world_scene_context_factory = WorldSceneContextFactoryClass.new()
 var item_registry: ItemRegistry = null
+var placeable_placement_service = PlaceablePlacementServiceClass.new()
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var time_manager: TimeManager = $time_manager
@@ -159,6 +160,7 @@ var item_registry: ItemRegistry = null
 
 func _ready() -> void:
 	item_registry = ItemDatabaseResource.build_registry()
+	placeable_placement_service.set_context(world_data, placeable_objects)
 	world_bootstrap.run(world_scene_context_factory.build_ready_context(self))
 
 func _process(delta: float) -> void:

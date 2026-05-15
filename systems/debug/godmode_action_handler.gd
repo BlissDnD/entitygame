@@ -82,6 +82,38 @@ func handle_console_command(command: String, context: Dictionary) -> Dictionary:
 
 func handle_item_command(command: String, context: Dictionary) -> Dictionary:
 	match command:
+		"place_vine_seed", "place vine seed":
+			var item_registry: ItemRegistry = context.get("item_registry", null)
+
+			if item_registry == null:
+				print("[GodModeItems] Cannot place vine seed: item_registry missing")
+				return _handled_result(true, false)
+
+			var placement_service = context.get("placeable_placement_service", null)
+
+			if placement_service == null:
+				print("[GodModeItems] Cannot place vine seed: placement service missing")
+				return _handled_result(true, false)
+
+			var vine_seed: ItemDefinition = item_registry.get_item(&"vine_seed")
+
+			if vine_seed == null:
+				print("[GodModeItems] Cannot place vine seed: item missing")
+				return _handled_result(true, false)
+
+			if vine_seed.placeable_definition == null:
+				print("[GodModeItems] Cannot place vine seed: no placeable definition")
+				return _handled_result(true, false)
+
+			placement_service.place_object(
+				vine_seed.placeable_definition,
+				Vector2.ZERO
+			)
+
+			print("[GodModeItems] Placed vine seed")
+
+			return _handled_result(true, true)
+
 		"add_vine_seed", "add 10 vine seed":
 			var item_registry: ItemRegistry = context.get("item_registry", null)
 			if item_registry == null:

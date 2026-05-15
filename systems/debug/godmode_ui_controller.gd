@@ -20,6 +20,8 @@ var time_manager: TimeManager = null
 var map_handler: MapHandler = null
 var world_draw_controller: WorldDrawController = null
 var item_registry: ItemRegistry = null
+var placeable_placement_service: PlaceablePlacementService = null
+var get_player_world_position: Callable
 
 var queue_redraw_callback: Callable = Callable()
 var start_background_fade_callback: Callable = Callable()
@@ -42,6 +44,8 @@ var get_current_room_surface_cell_y_callback: Callable = Callable()
 
 
 func configure(context: Dictionary) -> void:
+	placeable_placement_service = context.get("placeable_placement_service", null)
+	get_player_world_position = context.get("get_player_world_position", Callable())
 	console_panel = context.console_panel
 	console_input = context.console_input
 	godmode_panel = context.godmode_panel
@@ -190,6 +194,7 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 	var command: String = new_text.strip_edges().to_lower()
 	var result: Dictionary = godmode_action_handler.handle_console_command(command, {
 		"backpack_container": backpack_container,
+		
 		"item_registry": item_registry,
 		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
 		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
