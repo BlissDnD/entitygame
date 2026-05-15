@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://cyg6y6c6pqput"]
+
+[node name="VineRope" type="Node2D" unique_id=1411671275]
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=708504663]
+color = Color(2.5990605e-06, 0.7648185, 0.32275417, 1)
+polygon = PackedVector2Array(-25.5, 12, 2.5, -25, 22.5, 12)
+uv = PackedVector2Array(-69.5, -13, -41.5, -50, -21.5, -13)
+
+[node name="Polygon2D2" type="Polygon2D" parent="." unique_id=1933267634]
+position = Vector2(0, -19)
+scale = Vector2(0.72, 0.72)
+color = Color(0.8757506, 0.27869615, 0.6362308, 1)
+polygon = PackedVector2Array(-20.5, 13, -38.5, -18, -9.5, -5, 6.5, -24, 15.5, -1, 35.5, -12, 15.5, 14)
+uv = PackedVector2Array(-39.5, -7, -57.5, -38, -28.5, -25, -12.5, -44, -3.5, -21, 16.5, -32, -3.5, -6)

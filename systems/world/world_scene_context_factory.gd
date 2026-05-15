@@ -35,6 +35,7 @@ func build_ready_context(scene) -> Dictionary:
 				scene.GameplayTuningClass.ROOM_MIN_SIZE_CELLS
 			),
 		"get_gravity_field_system": func(): return scene.gravity_field_system,
+		"item_registry": scene.item_registry,
 		"get_item_drop_data": func(): return scene.item_drop_data,
 		"get_room_spawn_position": func(): return operation_helpers.get_room_spawn_position(scene),
 		"get_room_world_rect": func(): return scene.world_query_facade.get_room_world_rect(scene.map_handler),

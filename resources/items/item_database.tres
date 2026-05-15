@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemDatabase" format=3 uid="uid://cp5kvh2bcamk3"]
+
+[ext_resource type="Script" uid="uid://u46puxmanidd" path="res://systems/items/item_definition.gd" id="1_httwa"]
+[ext_resource type="Resource" path="res://resources/items/materials/stone.tres" id="2_5rvmy"]
+[ext_resource type="Script" uid="uid://1bworyiwun8p" path="res://systems/items/item_database.gd" id="2_8qdjs"]
+[ext_resource type="Resource" path="res://resources/items/salvage/scrap.tres" id="3_bhy12"]
+[ext_resource type="Resource" path="res://resources/items/equipment/backpacks/basic_backpack.tres" id="4_lftp7"]
+[ext_resource type="Resource" path="res://resources/items/equipment/tools/basic_mining_tool.tres" id="5_te67g"]
+[ext_resource type="Resource" uid="uid://b04fha50ffwjp" path="res://resources/items/gaia_tools/vine_seed.tres" id="6_cyn4i"]
+[ext_resource type="Resource" path="res://resources/items/equipment/tools/basic_axe.tres" id="7_cyn4i"]
+[ext_resource type="Resource" path="res://resources/items/materials/wood.tres" id="8_keyoe"]
+[ext_resource type="Resource" path="res://resources/items/devices/scanner.tres" id="9_ro745"]
+[ext_resource type="Resource" path="res://resources/items/placeable_items/test_placeable_box.tres" id="10_y0px8"]
+
+[resource]
+script = ExtResource("2_8qdjs")
+items = Array[ExtResource("1_httwa")]([ExtResource("2_5rvmy"), ExtResource("3_bhy12"), ExtResource("4_lftp7"), ExtResource("5_te67g"), ExtResource("6_cyn4i"), ExtResource("7_cyn4i"), ExtResource("8_keyoe"), ExtResource("9_ro745"), ExtResource("10_y0px8")])
+metadata/_custom_type_script = "uid://1bworyiwun8p"

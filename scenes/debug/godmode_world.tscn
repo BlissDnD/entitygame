@@ -1,6 +1,19 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://cudv7cb23dxa3"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/world_scene.tscn" id="1_world_scene"]
 
-[node name="godmode_world" instance=ExtResource("1_world_scene")]
+[node name="godmode_world" unique_id=1709066363 instance=ExtResource("1_world_scene")]
 starts_in_godmode = true
+
+[node name="console_input" parent="console_layer/console_panel" index="0"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 304.0
+offset_bottom = 31.0
+
+[node name="godmode_panel" parent="console_layer" index="1"]
+custom_minimum_size = Vector2(820, 80)
+offset_right = 821.0
+
+[connection signal="text_submitted" from="console_layer/console_panel/console_input" to="." method="_on_console_input_text_submitted"]

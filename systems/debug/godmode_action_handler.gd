@@ -82,59 +82,77 @@ func handle_console_command(command: String, context: Dictionary) -> Dictionary:
 
 func handle_item_command(command: String, context: Dictionary) -> Dictionary:
 	match command:
+		"add_vine_seed", "add 10 vine seed":
+			var vine_seed: ItemDefinition = context.item_registry.get_item(&"vine_seed")
+			if vine_seed != null:
+				context.inventory_runtime.add_backpack_stack(vine_seed, 10)
+			return _handled_result(true, true)
+
 		"equip_mining_tool", "equip basic mining tool":
 			context.player_equipment.equip_item(context.basic_mining_tool_definition)
 			print("[GodModeItems] Equipped mining tool: %s" % [context.basic_mining_tool_definition.id])
 			return _handled_result(true, true)
+
 		"unequip_mining_tool", "unequip mining tool":
 			context.player_equipment.unequip_item(EquipmentSlotClass.SlotType.PRIMARY_TOOL)
 			print("[GodModeItems] Unequipped mining tool")
 			return _handled_result(true, true)
+
 		"equip_backpack", "equip basic backpack":
 			context.equip_backpack_item.call(context.basic_backpack_item_definition, "[GodModeItems]")
 			return _handled_result(true, true)
+
 		"equip_axe", "equip basic axe":
 			context.player_equipment.equip_item(context.basic_axe_item_definition)
 			print("[GodModeItems] Equipped passive axe: %s" % [context.basic_axe_item_definition.id])
 			return _handled_result(true, true)
+
 		"unequip_axe", "unequip axe":
 			context.player_equipment.unequip_item(EquipmentSlotClass.SlotType.PASSIVE_TOOL)
 			print("[GodModeItems] Unequipped passive axe")
 			return _handled_result(true, true)
+
 		"unequip_backpack", "unequip backpack":
 			context.player_equipment.unequip_item(EquipmentSlotClass.SlotType.BACKPACK)
 			context.backpack_container.unequip_backpack()
 			print("[GodModeItems] Unequipped backpack")
 			return _handled_result(true, true)
+
 		"add_stone", "add 10 stone":
 			context.inventory_runtime.add_backpack_stack(context.stone_item_definition, 10)
 			return _handled_result(true, true)
+
 		"add_scrap", "add 5 scrap":
 			context.inventory_runtime.add_backpack_stack(context.scrap_item_definition, 5)
 			return _handled_result(true, true)
+
 		"print_equipment", "print equipment state":
 			context.inventory_runtime.print_equipment_state(context.player_cursor_controller.get_current_cursor_behavior_name())
 			return _handled_result(true, true)
+
 		"print_backpack", "print backpack contents":
 			context.inventory_runtime.print_backpack_contents()
 			return _handled_result(true, true)
+
 		"print_cursor", "print current cursor behavior":
 			print("[Cursor] Cursor behavior: %s" % [context.player_cursor_controller.get_current_cursor_behavior_name()])
 			return _handled_result(true, true)
+
 		"advance_hour", "advance one hour":
 			context.time_manager.advance_one_hour()
 			return _handled_result(true, true)
+
 		"reset_sun_cycle", "reset sun cycle":
 			context.time_manager.reset_to_midnight()
 			context.start_background_fade.call(context.time_manager.get_room_light_color(context.current_room_index), "sun cycle reset")
 			return _handled_result(true, true)
+
 		_:
 			return {
 				"handled": false,
 				"clear_console": false,
 				"queue_redraw": false,
 			}
-
 
 func apply_mining_power(value: float, debug_settings) -> void:
 	debug_settings.set_mining_power(value)

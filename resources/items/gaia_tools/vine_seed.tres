@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3 uid="uid://b04fha50ffwjp"]
+
+[ext_resource type="Resource" uid="uid://83t35m7bhqwx" path="res://resources/placeables/vine_rope.tres" id="1_36bc2"]
+[ext_resource type="Script" uid="uid://u46puxmanidd" path="res://systems/items/item_definition.gd" id="1_dnn70"]
+
+[resource]
+script = ExtResource("1_dnn70")
+id = &"vine_Seed"
+display_name = "Vine Seed"
+description = "A seed that can grow into traversal infrastructure."
+item_category = 2
+max_stack = 5
+weight = 0.1
+value = 4
+can_be_placed = true
+world_interaction_conditions = Array[StringName]([&"pickup"])
+default_world_state = &"loose"
+placeable_definition = ExtResource("1_36bc2")
+metadata/_custom_type_script = "uid://u46puxmanidd"

@@ -62,6 +62,7 @@ const BasicMiningToolDefinition = preload("res://resources/items/equipment/tools
 const BasicBackpackItemDefinition = preload("res://resources/items/equipment/backpacks/basic_backpack.tres")
 const StoneItemDefinition = preload("res://resources/items/materials/stone.tres")
 const ScrapItemDefinition = preload("res://resources/items/salvage/scrap.tres")
+const ItemDatabaseResource = preload("res://resources/items/item_database.tres")
 
 const ROOM_EDGE_NONE: String = ""
 const ROOM_EDGE_LEFT: String = "left"
@@ -137,6 +138,7 @@ var has_printed_missing_mining_tool_warning: bool = false
 var background_controller = WorldBackgroundControllerClass.new()
 var world_bootstrap = WorldBootstrapClass.new()
 var world_scene_context_factory = WorldSceneContextFactoryClass.new()
+var item_registry: ItemRegistry
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var time_manager: TimeManager = $time_manager
@@ -156,8 +158,8 @@ var world_scene_context_factory = WorldSceneContextFactoryClass.new()
 @onready var scene_refs: WorldSceneRefs = WorldSceneRefsClass.capture(self)
 
 func _ready() -> void:
+	item_registry = ItemDatabaseResource.build_registry()
 	world_bootstrap.run(world_scene_context_factory.build_ready_context(self))
-
 
 func _process(delta: float) -> void:
 	var state := {

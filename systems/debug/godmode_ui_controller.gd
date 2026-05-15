@@ -19,6 +19,7 @@ var player_cursor_controller: PlayerCursorController = null
 var time_manager: TimeManager = null
 var map_handler: MapHandler = null
 var world_draw_controller: WorldDrawController = null
+var item_registry: ItemRegistry = null
 
 var queue_redraw_callback: Callable = Callable()
 var start_background_fade_callback: Callable = Callable()
@@ -50,6 +51,7 @@ func configure(context: Dictionary) -> void:
 	godmode_snapshot_builder = context.godmode_snapshot_builder
 	time_debug_controller = context.time_debug_controller
 	inventory_runtime = context.inventory_runtime
+	item_registry = context.item_registry
 	inventory_data = context.inventory_data
 	player_equipment = context.player_equipment
 	backpack_container = context.backpack_container
@@ -86,6 +88,7 @@ func connect_signals() -> void:
 
 	if console_input != null:
 		console_input.text_submitted.connect(_on_console_input_text_submitted)
+		
 
 	if godmode_panel == null:
 		return
@@ -187,6 +190,7 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 	var command: String = new_text.strip_edges().to_lower()
 	var result: Dictionary = godmode_action_handler.handle_console_command(command, {
 		"backpack_container": backpack_container,
+		"item_registry": item_registry,
 		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
 		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
 		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
@@ -236,6 +240,7 @@ func _on_godmode_mining_shape_changed(shape: int) -> void:
 func _run_godmode_item_ui_command(command: String) -> void:
 	var result: Dictionary = godmode_action_handler.handle_item_command(command, {
 		"backpack_container": backpack_container,
+		"item_registry": item_registry,
 		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
 		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
 		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
