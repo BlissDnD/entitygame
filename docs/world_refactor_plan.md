@@ -116,10 +116,24 @@
    - File: `scenes/main/main.gd`
    - The active level now mounts its UI nodes (`console_layer`, `UIRoot`) under `main/ui` at runtime, while the level scene itself remains under `main/world`.
    - This preserves current gameplay/UI behavior while shifting actual UI tree ownership upward into the root scene architecture.
+29. `WorldScene` Composition-Root Cutover
+   - Files: `scenes/world/world_scene.gd`, `systems/world/world_scene_context_factory.gd`
+   - The large room/build/mining/transition/support helper blocks were removed from `world_scene.gd` after their behavior was moved behind `WorldSceneContextFactory` and existing facades/controllers.
+   - `world_scene.gd` is now a thin level-scene composition root again, focused on node references, runtime fields, and high-level delegation for `_ready()`, `_process()`, `_unhandled_input()`, and `_draw()`.
 
 ## Possible Next Extractions
 
 1. `Scene-Level Cleanup And Final Consolidation`
+2. `WorldDrawController` concern split
+   - Separate world-space drawing concerns before more visuals are added.
+   - Candidate slices: player/drop visuals, terrain/surface visuals, build-preview visuals, debug/label overlays, room-transition indicators.
+3. `WorldSceneContextFactory` shrink pass
+   - Reduce large dictionary assembly and repeated query wiring.
+   - Prefer smaller per-pipeline context builders or feature-local context helpers where ownership is clearer.
+4. `WorldSceneOperationHelpers` split by domain
+   - Candidate slices: room flow helpers, mining/build helpers, spawn/support helpers, player/world query bridges.
+5. `GameplayTuning` decentralization
+   - Keep shared cross-feature constants centralized, but move feature-specific tuning toward local config/resources when the feature stabilizes.
 
 ## Rules
 
@@ -128,3 +142,35 @@
 - Do not move ownership into UI.
 - Do not add autoloads for world-local gameplay state.
 - Keep `world_scene.gd` as the orchestrator until a larger runtime architecture is intentionally designed.
+
+## Updated Assessment
+
+The current refactor is working: `world_scene.gd` is much thinner than before, and the project can keep growing without immediately collapsing into a single giant script.
+
+But the next scaling risk has moved:
+
+- `world_scene.gd` is no longer the only hotspot.
+- `world_scene_context_factory.gd` and `world_scene_operation_helpers.gd` are now the main glue accumulators.
+- `world_draw_controller.gd` is close to becoming the next "everything file" for rendering concerns.
+
+That means future work should not treat the current refactor state as the end state. It is a safer midpoint.
+
+## Build-Forward Policy
+
+Use this plan as the rule for adding future gameplay:
+
+1. Keep scene scripts thin.
+2. Add new gameplay through dedicated feature-local systems.
+3. Let the world scene wire features together, but not own their logic.
+4. Split files before they exceed roughly 500 lines.
+5. Treat large callback/context dictionaries as transitional glue, not as the final gameplay API design.
+
+## Preferred Feature Addition Pattern
+
+When adding a new mechanic, try to follow this order:
+
+1. Add feature definitions/resources if the mechanic is data-driven.
+2. Add `systems/<feature>/` runtime/controller/query helpers.
+3. Add or update thin `entity/` wrappers only when a scene actor is actually needed.
+4. Connect the feature into `world_scene.gd` with minimal new wiring.
+5. Add focused tests or debug hooks near the feature instead of stuffing more diagnostic behavior into unrelated world files.

@@ -34,3 +34,15 @@ world_scene
 ## Migration Rule
 
 Do not move all behavior in one inheritance-chain pass. Move one ownership slice at a time into manager Nodes, connect signals upward, and only delete `world_scene.gd` code after the manager is driving the live scene.
+
+## Updated Direction
+
+This document now describes historical groundwork, not the full current target shape.
+
+The project has since moved toward a composition-root plus feature-system model:
+
+- `world_scene.gd` should remain thin.
+- Reusable gameplay logic should prefer `systems/<feature>/` modules over new manager-heavy scene ownership.
+- New features should be added as bounded systems with explicit scene wiring, not by growing one large world script or one giant manager tree.
+
+Manager Nodes are still useful when a scene-owned Node genuinely needs lifecycle or editor visibility, but they should not become the default place for unrelated gameplay logic.

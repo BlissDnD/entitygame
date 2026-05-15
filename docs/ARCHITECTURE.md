@@ -70,3 +70,42 @@ Backend/domain logic remains in `systems/`. Scene actors and thin editor-facing 
 - `systems/world/gravity_field_system.gd` and `gravity_field_data.gd` provide local gravity-field test data for the playable world runtime.
 - `world_scene.gd` owns room-local gravity field systems and exposes GodMode placement modes for field bounds and gravity points.
 - Gravity fields are local modifiers; global player/world gravity remains unchanged outside a field.
+
+## Build-Forward Rules
+
+The project is now in an early gameplay-foundation stage rather than a pure empty-shell stage. New work should preserve the current modular direction and avoid regrowing a monolithic world scene.
+
+- `scenes/world/world_scene.gd` should stay a composition root: node refs, runtime fields, and high-level delegation only.
+- New gameplay features should usually enter through a dedicated folder under `systems/` with small focused files such as runtime, controller, query, rendering, or data helpers.
+- Prefer adding feature-local resources or definitions over adding more hardcoded branching to shared orchestrators.
+- If a new mechanic needs scene wiring, keep the scene change thin and let the feature own its own behavior.
+- Avoid turning large callback dictionaries into the long-term ownership model for gameplay logic; use them as transitional glue only.
+
+## File Size Guidance
+
+The repo can still scale while keeping files under roughly 500 lines, but only if new responsibilities are split early.
+
+Recommended practical rule:
+
+- under `250` lines: ideal for small helpers and single-purpose controllers
+- `250-400` lines: acceptable for feature runtimes or orchestration with one clear concern
+- `400-500` lines: warning zone; split before adding major new behavior
+- over `500` lines: treat as a refactor target unless there is a strong reason not to
+
+Current hotspots worth watching:
+
+- `systems/world/world_draw_controller.gd`
+- `systems/config/gameplay_tuning.gd`
+- `systems/world/world_data.gd`
+- `systems/world/world_scene_operation_helpers.gd`
+- `scenes/world/world_scene.gd`
+
+## Where To Add New Things
+
+Prefer this pattern when extending the game:
+
+1. Add definitions/resources first if the feature is content- or tuning-driven.
+2. Add a feature-local runtime/controller in `systems/<feature>/`.
+3. Let scene actors in `entity/` stay thin and reactive.
+4. Keep UI display and debug controls in `ui/` and `systems/debug/`, never as gameplay owners.
+5. Touch `world_scene.gd` only to connect the feature into the existing frame/input/bootstrap flow.
