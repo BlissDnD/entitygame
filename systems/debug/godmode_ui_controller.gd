@@ -51,7 +51,7 @@ func configure(context: Dictionary) -> void:
 	godmode_snapshot_builder = context.godmode_snapshot_builder
 	time_debug_controller = context.time_debug_controller
 	inventory_runtime = context.inventory_runtime
-	item_registry = context.item_registry
+	item_registry = context.get("item_registry", null)
 	inventory_data = context.inventory_data
 	player_equipment = context.player_equipment
 	backpack_container = context.backpack_container

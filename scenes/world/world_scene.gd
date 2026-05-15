@@ -138,7 +138,7 @@ var has_printed_missing_mining_tool_warning: bool = false
 var background_controller = WorldBackgroundControllerClass.new()
 var world_bootstrap = WorldBootstrapClass.new()
 var world_scene_context_factory = WorldSceneContextFactoryClass.new()
-var item_registry: ItemRegistry
+var item_registry: ItemRegistry = null
 
 @onready var camera_2d: Camera2D = $camera_2d
 @onready var time_manager: TimeManager = $time_manager

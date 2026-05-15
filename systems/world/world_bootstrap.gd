@@ -42,6 +42,7 @@ func run(context: Dictionary) -> void:
 	refs.time_manager.configure(context.room_count, context.default_hour_duration_seconds)
 	context.godmode_ui_controller.configure({
 		"backpack_container": runtime.backpack_container,
+		"item_registry": context.item_registry,
 		"console_input": refs.console_input,
 		"console_panel": refs.console_panel,
 		"debug_settings": runtime.debug_settings,

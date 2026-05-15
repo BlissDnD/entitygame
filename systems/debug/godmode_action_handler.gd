@@ -83,9 +83,17 @@ func handle_console_command(command: String, context: Dictionary) -> Dictionary:
 func handle_item_command(command: String, context: Dictionary) -> Dictionary:
 	match command:
 		"add_vine_seed", "add 10 vine seed":
-			var vine_seed: ItemDefinition = context.item_registry.get_item(&"vine_seed")
-			if vine_seed != null:
-				context.inventory_runtime.add_backpack_stack(vine_seed, 10)
+			var item_registry: ItemRegistry = context.get("item_registry", null)
+			if item_registry == null:
+				print("[GodModeItems] Cannot add vine seed: item_registry missing")
+				return _handled_result(true, false)
+
+			var vine_seed: ItemDefinition = item_registry.get_item(&"vine_seed")
+			if vine_seed == null:
+				print("[GodModeItems] Cannot add vine seed: item not registered")
+				return _handled_result(true, false)
+
+			context.inventory_runtime.add_backpack_stack(vine_seed, 10)
 			return _handled_result(true, true)
 
 		"equip_mining_tool", "equip basic mining tool":

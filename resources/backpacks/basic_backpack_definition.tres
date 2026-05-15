@@ -1,13 +1,11 @@
-[gd_resource type="Resource" script_class="BackpackDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="BackpackDefinition" format=3 uid="uid://bu8ktevludqy2"]
 
-[ext_resource type="Script" path="res://systems/backpack/backpack_definition.gd" id="1_backpack_definition"]
+[ext_resource type="Script" uid="uid://e2agbm2oa1g7" path="res://systems/backpack/backpack_definition.gd" id="1_backpack_definition"]
 
 [resource]
 script = ExtResource("1_backpack_definition")
 id = &"basic_backpack"
 display_name = "Basic Backpack"
-capacity_slots = 8
 max_weight = 35.0
 value = 25
-allowed_item_categories = Array[int]([0, 3, 4, 5])
-movement_penalty = 0.0
+allowed_item_categories = Array[int]([0, 1, 2, 3, 4, 5])
