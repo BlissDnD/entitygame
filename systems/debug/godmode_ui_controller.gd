@@ -97,6 +97,8 @@ func connect_signals() -> void:
 	godmode_panel.unequip_tool_requested.connect(_on_unequip_tool_button_pressed)
 	godmode_panel.equip_backpack_requested.connect(_on_equip_backpack_button_pressed)
 	godmode_panel.unequip_backpack_requested.connect(_on_unequip_backpack_button_pressed)
+	godmode_panel.equip_axe_requested.connect(_on_equip_axe_button_pressed)
+	godmode_panel.unequip_axe_requested.connect(_on_unequip_axe_button_pressed)
 	godmode_panel.add_stone_requested.connect(_on_add_stone_button_pressed)
 	godmode_panel.add_scrap_requested.connect(_on_add_scrap_button_pressed)
 	godmode_panel.print_equipment_requested.connect(_on_print_equipment_button_pressed)
@@ -185,8 +187,9 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 	var command: String = new_text.strip_edges().to_lower()
 	var result: Dictionary = godmode_action_handler.handle_console_command(command, {
 		"backpack_container": backpack_container,
-		"basic_backpack_item_definition": preload("res://resources/equipment/basic_backpack.tres"),
-		"basic_mining_tool_definition": preload("res://resources/equipment/basic_mining_tool.tres"),
+		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
+		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
+		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
 		"current_room_index": get_current_room_index_callback.call(),
 		"debug_settings": debug_settings,
 		"equip_backpack_item": equip_backpack_item_callback,
@@ -194,12 +197,12 @@ func _on_console_input_text_submitted(new_text: String) -> void:
 		"inventory_runtime": inventory_runtime,
 		"player_cursor_controller": player_cursor_controller,
 		"player_equipment": player_equipment,
-		"scrap_item_definition": preload("res://resources/items/scrap.tres"),
+		"scrap_item_definition": preload("res://resources/items/salvage/scrap.tres"),
 		"set_debug_enabled": Callable(self, "_set_debug_overlay_enabled"),
 		"set_inventory_capacity": set_inventory_capacity_callback,
 		"set_inventory_weight_capacity": set_inventory_weight_capacity_callback,
 		"start_background_fade": start_background_fade_callback,
-		"stone_item_definition": preload("res://resources/items/stone.tres"),
+		"stone_item_definition": preload("res://resources/items/materials/stone.tres"),
 		"time_manager": time_manager,
 	})
 	if bool(result.get("close_console", false)):
@@ -233,16 +236,17 @@ func _on_godmode_mining_shape_changed(shape: int) -> void:
 func _run_godmode_item_ui_command(command: String) -> void:
 	var result: Dictionary = godmode_action_handler.handle_item_command(command, {
 		"backpack_container": backpack_container,
-		"basic_backpack_item_definition": preload("res://resources/equipment/basic_backpack.tres"),
-		"basic_mining_tool_definition": preload("res://resources/equipment/basic_mining_tool.tres"),
+		"basic_axe_item_definition": preload("res://resources/items/equipment/tools/basic_axe.tres"),
+		"basic_backpack_item_definition": preload("res://resources/items/equipment/backpacks/basic_backpack.tres"),
+		"basic_mining_tool_definition": preload("res://resources/items/equipment/tools/basic_mining_tool.tres"),
 		"current_room_index": get_current_room_index_callback.call(),
 		"equip_backpack_item": equip_backpack_item_callback,
 		"inventory_runtime": inventory_runtime,
 		"player_cursor_controller": player_cursor_controller,
 		"player_equipment": player_equipment,
-		"scrap_item_definition": preload("res://resources/items/scrap.tres"),
+		"scrap_item_definition": preload("res://resources/items/salvage/scrap.tres"),
 		"start_background_fade": start_background_fade_callback,
-		"stone_item_definition": preload("res://resources/items/stone.tres"),
+		"stone_item_definition": preload("res://resources/items/materials/stone.tres"),
 		"time_manager": time_manager,
 	})
 	if bool(result.get("refresh_ui", false)):
@@ -265,6 +269,14 @@ func _on_equip_backpack_button_pressed() -> void:
 
 func _on_unequip_backpack_button_pressed() -> void:
 	_run_godmode_item_ui_command("unequip_backpack")
+
+
+func _on_equip_axe_button_pressed() -> void:
+	_run_godmode_item_ui_command("equip_axe")
+
+
+func _on_unequip_axe_button_pressed() -> void:
+	_run_godmode_item_ui_command("unequip_axe")
 
 
 func _on_add_stone_button_pressed() -> void:

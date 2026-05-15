@@ -4,10 +4,10 @@
 [ext_resource type="Theme" uid="uid://bdtgasoprnsj1" path="res://ui/themes/default_ui_theme.tres" id="2_theme"]
 
 [node name="godmode_panel" type="Panel" unique_id=304786239]
-custom_minimum_size = Vector2(820, 80)
+custom_minimum_size = Vector2(904, 80)
 offset_left = 1.0000153
 offset_top = 1.0000019
-offset_right = 821.0
+offset_right = 905.0
 offset_bottom = 87.0
 scale = Vector2(0.7047695, 0.7047695)
 theme = ExtResource("2_theme")
@@ -116,35 +116,51 @@ text = "Bag-"
 
 [node name="add_stone_button" type="Button" parent="." unique_id=111869612]
 layout_mode = 0
-offset_left = 618.0
+offset_left = 702.0
 offset_top = 11.0
-offset_right = 672.0
+offset_right = 756.0
 offset_bottom = 35.0
 text = "+Stone"
 
 [node name="add_scrap_button" type="Button" parent="." unique_id=701748734]
 layout_mode = 0
-offset_left = 676.0
+offset_left = 760.0
 offset_top = 11.0
-offset_right = 730.0
+offset_right = 814.0
 offset_bottom = 35.0
 text = "+Scrap"
 
 [node name="time_forward_button" type="Button" parent="." unique_id=220825682]
 layout_mode = 0
-offset_left = 738.0
+offset_left = 822.0
 offset_top = 11.0
-offset_right = 802.0
+offset_right = 886.0
 offset_bottom = 35.0
 text = "Time+"
 
 [node name="time_backward_button" type="Button" parent="." unique_id=1513461276]
 layout_mode = 0
-offset_left = 738.0
+offset_left = 822.0
 offset_top = 43.0
-offset_right = 802.0
+offset_right = 886.0
 offset_bottom = 67.0
 text = "Time-"
+
+[node name="equip_axe_button" type="Button" parent="." unique_id=2014000001]
+layout_mode = 0
+offset_left = 614.0
+offset_top = 11.0
+offset_right = 660.0
+offset_bottom = 35.0
+text = "Axe+"
+
+[node name="unequip_axe_button" type="Button" parent="." unique_id=2014000002]
+layout_mode = 0
+offset_left = 664.0
+offset_top = 11.0
+offset_right = 698.0
+offset_bottom = 35.0
+text = "Axe-"
 
 [node name="selected_material_value" type="Label" parent="." unique_id=999964069]
 layout_mode = 0
@@ -321,6 +337,8 @@ text = "5"
 [connection signal="pressed" from="unequip_tool_button" to="." method="_on_unequip_tool_button_pressed"]
 [connection signal="pressed" from="equip_backpack_button" to="." method="_on_equip_backpack_button_pressed"]
 [connection signal="pressed" from="unequip_backpack_button" to="." method="_on_unequip_backpack_button_pressed"]
+[connection signal="pressed" from="equip_axe_button" to="." method="_on_equip_axe_button_pressed"]
+[connection signal="pressed" from="unequip_axe_button" to="." method="_on_unequip_axe_button_pressed"]
 [connection signal="pressed" from="add_stone_button" to="." method="_on_add_stone_button_pressed"]
 [connection signal="pressed" from="add_scrap_button" to="." method="_on_add_scrap_button_pressed"]
 [connection signal="pressed" from="time_forward_button" to="." method="_on_time_forward_button_pressed"]

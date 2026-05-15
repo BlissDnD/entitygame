@@ -11,7 +11,7 @@ func handle_unhandled_input(event: InputEvent, state: Dictionary, context: Dicti
 		return {"input_handled": false}
 
 	if event.is_action_pressed("interact"):
-		if try_interact(state, context):
+		if try_interact(context):
 			return {
 				"input_handled": true,
 				"queue_redraw": true,
@@ -31,10 +31,15 @@ func handle_unhandled_input(event: InputEvent, state: Dictionary, context: Dicti
 	return {"input_handled": false}
 
 
-func try_interact(state: Dictionary, context: Dictionary) -> bool:
-	if _try_interact_with_backpack_world_item(state, context):
-		return true
-	return _try_interact_with_crash_ship(context)
+func try_interact(context: Dictionary) -> bool:
+	context.interaction_context.set_frame_state({
+		"current_room_index": context.current_room_index,
+		"mouse_world_position": context.mouse_world_position,
+		"player_size_cells": context.player_size_cells,
+		"player_world_position": context.player_world_position,
+	})
+	var result: Dictionary = context.interaction_manager.try_interact(context.interaction_context, null)
+	return bool(result.get("handled", false))
 
 
 func drop_equipped_backpack(context: Dictionary) -> void:
@@ -63,29 +68,6 @@ func try_pick_up_hovered_drops(state: Dictionary, context: Dictionary) -> bool:
 func cycle_selected_material(direction: int, context: Dictionary) -> void:
 	if context.inventory_runtime.cycle_selected_material(direction):
 		context.refresh_godmode_ui.call()
-
-
-func _try_interact_with_backpack_world_item(state: Dictionary, context: Dictionary) -> bool:
-	var player_rect: Rect2 = Rect2(
-		context.player_world_position,
-		context.get_world_size_from_cells.call(context.player_size_cells)
-	)
-	var result: Dictionary = context.item_interaction_controller.try_interact_with_backpack_world_item(player_rect)
-	if bool(result.get("did_change_inventory", false)):
-		context.refresh_godmode_ui.call()
-	return bool(result.get("handled", false))
-
-
-func _try_interact_with_crash_ship(context: Dictionary) -> bool:
-	var player_rect: Rect2 = Rect2(
-		context.player_world_position,
-		context.get_world_size_from_cells.call(context.player_size_cells)
-	)
-	return context.crash_ship_interaction_controller.try_interact_with_crash_ship(
-		context.crash_ship,
-		context.current_room_index,
-		player_rect
-	)
 
 
 func _handle_mouse_button_event(event: InputEventMouseButton, state: Dictionary, context: Dictionary) -> Dictionary:

@@ -4,6 +4,7 @@ extends RefCounted
 var item_drop_data: ItemDropData = null
 var inventory_runtime: InventoryRuntime = null
 var player_equipment: PlayerEquipment = null
+var interaction_registry: InteractionRegistry = null
 var spawn_manager: SpawnManager = null
 var world_items: Node2D = null
 var world_backpack_items: Array[BackpackWorldItem] = []
@@ -25,8 +26,29 @@ func bind_scene_dependencies(next_spawn_manager: SpawnManager, next_world_items:
 	world_items = next_world_items
 
 
+func set_interaction_registry(next_interaction_registry: InteractionRegistry) -> void:
+	interaction_registry = next_interaction_registry
+
+
 func set_item_drop_data(next_item_drop_data: ItemDropData) -> void:
 	item_drop_data = next_item_drop_data
+
+
+func get_backpack_world_items() -> Array[BackpackWorldItem]:
+	var valid_items: Array[BackpackWorldItem] = []
+	for backpack_item in world_backpack_items:
+		if backpack_item == null or not is_instance_valid(backpack_item):
+			continue
+		valid_items.append(backpack_item)
+	return valid_items
+
+
+func unregister_backpack_world_item(backpack_item: BackpackWorldItem) -> void:
+	if backpack_item == null:
+		return
+	world_backpack_items.erase(backpack_item)
+	if interaction_registry != null:
+		interaction_registry.unregister_interactable(backpack_item)
 
 
 func update_item_drops(
@@ -100,7 +122,7 @@ func try_interact_with_backpack_world_item(player_rect: Rect2) -> Dictionary:
 		var item_definition: ItemDefinition = backpack_item.item_definition
 		var did_equip: bool = inventory_runtime.equip_backpack_item(item_definition, "[Backpack]")
 		if did_equip:
-			world_backpack_items.erase(backpack_item)
+			unregister_backpack_world_item(backpack_item)
 			backpack_item.queue_free()
 
 		return {
@@ -144,8 +166,8 @@ func spawn_backpack_world_item(
 		return null
 
 	var scene: PackedScene = default_scene
-	if item_definition != null and item_definition.world_scene != null:
-		scene = item_definition.world_scene
+	if item_definition != null and item_definition.uses_scene_world_drop():
+		scene = item_definition.get_dropped_world_scene()
 
 	var backpack_item: BackpackWorldItem = spawn_manager.spawn_scene(scene, world_items, world_position, &"backpack_world_item") as BackpackWorldItem
 	if backpack_item == null:
@@ -153,4 +175,6 @@ func spawn_backpack_world_item(
 
 	backpack_item.setup(item_definition)
 	world_backpack_items.append(backpack_item)
+	if interaction_registry != null:
+		interaction_registry.register_interactable(backpack_item)
 	return backpack_item

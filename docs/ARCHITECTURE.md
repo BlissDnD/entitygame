@@ -21,13 +21,24 @@ Prototype NPC scenes live under `entity/npc/`.
 
 The item foundation is data-driven and separate from the current material prototype inventory.
 
-- `systems/items/item_definition.gd` defines broad item data, categories, capabilities, and specialization flags.
+- `systems/items/item_definition.gd` defines broad item data, categories, capabilities, equipment intent, and dropped-world phase properties such as world behavior, interaction conditions, default state, and lifespan.
 - `systems/equipment/player_equipment.gd` tracks equipped tools, weapons, and backpacks.
 - `systems/backpack/backpack_definition.gd` and `backpack_container.gd` provide the physical backpack foundation.
 - `systems/cursor/player_cursor_controller.gd` maps equipped item cursor behavior to debug state.
-- Example editable item resources live under `resources/items/`, `resources/equipment/`, `resources/backpacks/`, and `resources/cursor/`.
+- Example editable item resources live under `resources/items/`, `resources/backpacks/`, and `resources/cursor/`.
 
 Placeable item definitions reference existing `PlaceableObjectDefinition` resources; placement validation remains owned by `systems/placeables/`.
+
+The living long-term item architecture plan lives in:
+
+- `docs/item_architecture_plan.md`
+
+That document should be treated as the source for:
+
+- item folder/category direction
+- one-definition-per-item rules
+- item phase modeling such as inventory/equipped/dropped/placed
+- future dropped-item unification work
 
 ## Room Time And World Influences
 
@@ -109,3 +120,16 @@ Prefer this pattern when extending the game:
 3. Let scene actors in `entity/` stay thin and reactive.
 4. Keep UI display and debug controls in `ui/` and `systems/debug/`, never as gameplay owners.
 5. Touch `world_scene.gd` only to connect the feature into the existing frame/input/bootstrap flow.
+
+## Interaction Plan
+
+The current long-term interaction architecture plan lives in:
+
+- `docs/interaction_system_plan.md`
+
+That document should be treated as the living source for:
+
+- hand/place/attach/pull/scan interaction direction
+- interaction-system ownership boundaries
+- phased implementation order
+- integration strategy with the current world/cursor/item/placeable systems

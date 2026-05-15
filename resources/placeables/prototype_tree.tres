@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b1gcsixhjaljc" path="res://systems/placeables/placeable_object_definition.gd" id="1_definition"]
 [ext_resource type="PackedScene" path="res://entity/placeable/prototype_tree.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://resources/items/materials/wood.tres" id="3_wood"]
 
 [resource]
 script = ExtResource("1_definition")
@@ -11,3 +12,7 @@ scene = ExtResource("2_scene")
 has_collision = true
 footprint_tiles = Vector2i(6, 10)
 placement_offset = Vector2(24, 80)
+interaction_enabled = true
+required_passive_item_ids = Array[StringName]([&"basic_axe"])
+interaction_yield_item = ExtResource("3_wood")
+interaction_yield_amount = 3

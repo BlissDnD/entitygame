@@ -405,6 +405,8 @@ const MINING_PREVIEW_NEAR_BRIGHTNESS: float = 1.0
 # Traversal preview brightness for the farthest cells in excavation order.
 # Used by: `world_scene.gd`.
 const MINING_PREVIEW_FAR_BRIGHTNESS: float = 0.42
+const INTERACTION_HIGHLIGHT_FILL_COLOR: Color = Color(0.95, 0.85, 0.2, 0.14)
+const INTERACTION_HIGHLIGHT_OUTLINE_COLOR: Color = Color(1.0, 0.95, 0.45, 0.95)
 
 # Terrain brightness multiplier at 25 percent damage.
 # Used by: `world_scene.gd`.

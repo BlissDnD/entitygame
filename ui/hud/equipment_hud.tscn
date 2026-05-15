@@ -20,6 +20,10 @@ tooltip_text = "Backpack"
 layout_mode = 2
 tooltip_text = "Primary Tool"
 
+[node name="passive_tool_slot" parent="HBoxContainer" instance=ExtResource("2_item_slot")]
+layout_mode = 2
+tooltip_text = "Passive Tool"
+
 [node name="weapon_slot" parent="HBoxContainer" instance=ExtResource("2_item_slot")]
 layout_mode = 2
 tooltip_text = "Weapon"

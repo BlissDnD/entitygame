@@ -15,6 +15,23 @@ func run(context: Dictionary) -> void:
 	_setup_ui_root(refs, runtime)
 
 	context.item_interaction_controller.bind_scene_dependencies(refs.spawn_manager, refs.world_items)
+	context.item_interaction_controller.set_interaction_registry(context.interaction_registry)
+	context.interaction_registry.register_interactable(refs.crash_ship)
+	context.player_hand_interaction_provider.configure({
+		"interaction_registry": context.interaction_registry,
+	})
+	context.interaction_context.configure({
+		"crash_ship": refs.crash_ship,
+		"crash_ship_interaction_controller": context.crash_ship_interaction_controller,
+		"interaction_registry": context.interaction_registry,
+		"get_world_size_from_cells": context.get_world_size_from_cells,
+		"get_hand_interaction_candidates": Callable(context.player_hand_interaction_provider, "get_candidates"),
+		"item_interaction_controller": context.item_interaction_controller,
+		"inventory_runtime": runtime.inventory_runtime,
+		"player_equipment": runtime.player_equipment,
+		"player_cursor_controller": runtime.player_cursor_controller,
+		"refresh_godmode_ui": Callable(context.godmode_ui_controller, "refresh_godmode_ui"),
+	})
 	context.set_world_spawn_controller.call(context.create_world_spawn_controller.call(
 		refs.spawn_manager,
 		refs.persistent_followers,
@@ -61,6 +78,7 @@ func run(context: Dictionary) -> void:
 	context.godmode_ui_controller.connect_signals()
 	context.apply_view_resolution.call()
 	context.generate_rooms.call()
+	_register_interactables_in_tree(refs.placeable_objects, context.interaction_registry)
 	refs.camera_2d.ignore_rotation = true
 	refs.camera_2d.zoom = Vector2.ONE
 	context.set_current_room.call(0)
@@ -94,3 +112,12 @@ func _setup_ui_root(refs: WorldSceneRefs, runtime: WorldRuntime) -> void:
 		return
 	refs.ui_root.bind_equipment(runtime.player_equipment)
 	refs.ui_root.bind_cursor_controller(runtime.player_cursor_controller)
+
+
+func _register_interactables_in_tree(root: Node, interaction_registry: InteractionRegistry) -> void:
+	if root == null or interaction_registry == null:
+		return
+	for child in root.get_children():
+		if child.has_method("can_interact") and child.has_method("interact"):
+			interaction_registry.register_interactable(child)
+		_register_interactables_in_tree(child, interaction_registry)

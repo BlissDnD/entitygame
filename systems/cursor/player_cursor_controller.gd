@@ -39,7 +39,7 @@ func uses_targeting_preview() -> bool:
 
 
 func _on_equipped_item_changed(slot_type, item_definition: ItemDefinition) -> void:
-	if slot_type == EquipmentSlotClass.SlotType.BACKPACK:
+	if slot_type == EquipmentSlotClass.SlotType.BACKPACK or slot_type == EquipmentSlotClass.SlotType.PASSIVE_TOOL:
 		return
 
 	_apply_item(item_definition)

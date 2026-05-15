@@ -7,6 +7,7 @@ const WorldUtilsClass = preload("res://systems/world/world_utils.gd")
 
 var world_data = null
 var object_parent: Node = null
+var interaction_registry: InteractionRegistry = null
 
 
 func _init(next_world_data = null, next_object_parent: Node = null) -> void:
@@ -17,6 +18,10 @@ func _init(next_world_data = null, next_object_parent: Node = null) -> void:
 func set_context(next_world_data, next_object_parent: Node) -> void:
 	world_data = next_world_data
 	object_parent = next_object_parent
+
+
+func set_interaction_registry(next_interaction_registry: InteractionRegistry) -> void:
+	interaction_registry = next_interaction_registry
 
 
 func can_place(definition: PlaceableObjectDefinition, tile_position: Vector2i, placement_mode: int = -1) -> bool:
@@ -50,6 +55,8 @@ func place_object(definition: PlaceableObjectDefinition, tile_position: Vector2i
 		placed_node_2d.global_position = tile_to_world(tile_position) + definition.placement_offset
 	if placed_object.has_method("setup_from_definition"):
 		placed_object.setup_from_definition(definition)
+	if interaction_registry != null and placed_object.has_method("can_interact") and placed_object.has_method("interact"):
+		interaction_registry.register_interactable(placed_object)
 
 	return placed_object
 

@@ -8,6 +8,8 @@ signal equip_tool_requested
 signal unequip_tool_requested
 signal equip_backpack_requested
 signal unequip_backpack_requested
+signal equip_axe_requested
+signal unequip_axe_requested
 signal add_stone_requested
 signal add_scrap_requested
 signal print_equipment_requested
@@ -117,6 +119,14 @@ func _on_equip_backpack_button_pressed() -> void:
 
 func _on_unequip_backpack_button_pressed() -> void:
 	unequip_backpack_requested.emit()
+
+
+func _on_equip_axe_button_pressed() -> void:
+	equip_axe_requested.emit()
+
+
+func _on_unequip_axe_button_pressed() -> void:
+	unequip_axe_requested.emit()
 
 
 func _on_add_stone_button_pressed() -> void:

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://systems/items/item_definition.gd" id="1_item_definition"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"basic_axe"
+display_name = "Basic Axe"
+description = "A passive chopping tool for hand interactions."
+item_category = 1
+max_stack = 1
+weight = 2.0
+value = 18
+can_be_carried = true
+can_be_equipped = true
+can_exist_in_world = true
+world_behavior = 1
+is_world_interactable = true
+world_interaction_conditions = Array[StringName]([&"pickup", &"equip"])
+default_world_state = &"loose"
+max_world_lifespan_seconds = -1.0
+is_passive_equipment = true
+equipment_slot_type = 2

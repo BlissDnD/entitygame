@@ -38,11 +38,15 @@ func build_ready_context(scene) -> Dictionary:
 		"get_item_drop_data": func(): return scene.item_drop_data,
 		"get_room_spawn_position": func(): return operation_helpers.get_room_spawn_position(scene),
 		"get_room_world_rect": func(): return scene.world_query_facade.get_room_world_rect(scene.map_handler),
+		"get_world_size_from_cells": func(size_cells): return operation_helpers.get_world_size_from_cells(scene, size_cells),
 		"get_selected_material_name": func(): return scene.WorldMaterialsClass.get_display_name(scene.inventory_runtime.selected_material_id),
 		"get_shape_name": func(shape_type): return scene.world_build_mining_facade.get_shape_name(scene.mining_runtime, shape_type),
 		"godmode_action_handler": scene.godmode_action_handler,
 		"godmode_snapshot_builder": scene.godmode_snapshot_builder,
 		"godmode_ui_controller": scene.godmode_ui_controller,
+		"interaction_context": scene.interaction_context,
+		"interaction_registry": scene.interaction_registry,
+		"player_hand_interaction_provider": scene.player_hand_interaction_provider,
 		"is_player_inside_gravity_field": func():
 			return scene.world_build_mining_facade.is_player_inside_gravity_field(
 				scene.world_player_controller,
@@ -51,6 +55,7 @@ func build_ready_context(scene) -> Dictionary:
 				func(size_cells): return scene.world_query_facade.get_world_size_from_cells(size_cells, scene.WorldConstantsClass.CELL_SIZE)
 			),
 		"item_interaction_controller": scene.item_interaction_controller,
+		"crash_ship_interaction_controller": scene.crash_ship_interaction_controller,
 		"max_atlas_worker_followers": scene.MAX_ATLAS_WORKER_FOLLOWERS,
 		"place_crash_ship_in_starting_room": func(): operation_helpers.place_crash_ship_in_starting_room(scene),
 		"queue_redraw": Callable(scene, "queue_redraw"),
@@ -147,6 +152,8 @@ func build_input_context(scene) -> Dictionary:
 		"get_player_ground_world": func(): return operation_helpers.get_player_ground_world(scene),
 		"get_world_size_from_cells": func(size_cells): return operation_helpers.get_world_size_from_cells(scene, size_cells),
 		"handle_gravity_build_click": func(): operation_helpers.handle_gravity_build_click(scene),
+		"interaction_context": scene.interaction_context,
+		"interaction_manager": scene.interaction_manager,
 		"inventory_runtime": scene.inventory_runtime,
 		"is_console_open": Callable(scene.godmode_ui_controller, "is_console_open"),
 		"is_gravity_build_mode_active": func(): return scene.world_build_mining_facade.is_gravity_build_mode_active(scene.build_mode_runtime),
@@ -164,6 +171,17 @@ func build_input_context(scene) -> Dictionary:
 
 
 func build_draw_context(scene) -> Dictionary:
+	scene.interaction_context.set_frame_state({
+		"current_room_index": scene.world_room_controller.get_current_room_index(),
+		"mouse_world_position": scene.get_global_mouse_position(),
+		"player_size_cells": scene.GameplayTuningClass.PLAYER_SIZE_CELLS,
+		"player_world_position": scene.player_world_position,
+	})
+	var hovered_hand_target = scene.interaction_manager.get_hovered_hand_target(
+		scene.interaction_context,
+		null,
+		scene.get_global_mouse_position()
+	)
 	var room_rect: Rect2 = scene.world_query_facade.get_room_world_rect(scene.map_handler)
 	var player_center_world: Vector2 = operation_helpers.get_player_center_world(scene)
 	return {
@@ -235,6 +253,7 @@ func build_draw_context(scene) -> Dictionary:
 		"gravity_point_build_mode": scene.BuildModeRuntimeClass.BuildMode.GRAVITY_POINT,
 		"has_inspected_cell": scene.has_inspected_cell,
 		"has_won": scene.has_won,
+		"hovered_hand_interaction_target": hovered_hand_target,
 		"hovered_cell": scene.hovered_cell,
 		"hovered_drop_index": scene.hovered_drop_index,
 		"inspected_cell": scene.inspected_cell,

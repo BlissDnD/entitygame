@@ -79,6 +79,7 @@ func generate_rooms(scene) -> void:
 			),
 		"get_surface_cell_y_for_room": func(room_size_cells): return scene.world_query_facade.get_surface_cell_y_for_room(scene.world_room_controller, room_size_cells),
 		"gravity_field_system_class": scene.GravityFieldSystemClass,
+		"interaction_registry": scene.interaction_registry,
 		"item_drop_data_class": scene.ItemDropDataClass,
 		"npc_objects": scene.npc_objects,
 		"persistent_followers": scene.persistent_followers,

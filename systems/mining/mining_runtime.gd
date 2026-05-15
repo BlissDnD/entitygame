@@ -189,7 +189,7 @@ func can_mine_with_equipped_tool(player_equipment: PlayerEquipment, current_curs
 		return false
 	if equipped_tool.item_category != ItemTypesClass.ItemCategory.EQUIPMENT:
 		return false
-	if not equipped_tool.is_tool:
+	if not equipped_tool.is_tool_item():
 		return false
 	if equipped_tool.cursor_behavior == null:
 		return false

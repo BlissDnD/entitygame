@@ -165,6 +165,7 @@ func _generate_surface_props_for_room(
 ) -> Array:
 	var props: Array = []
 	var tree_placement_service = PlaceablePlacementServiceClass.new(room_world_data, room_placeable_container)
+	tree_placement_service.set_interaction_registry(context.get("interaction_registry", null))
 	var surface_cell_y: int = context.get_surface_cell_y_for_room.call(room_size_cells)
 	var cell_x: int = GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS
 	var max_cell_x: int = room_size_cells.x - GameplayTuningClass.SURFACE_PROP_EDGE_MARGIN_CELLS

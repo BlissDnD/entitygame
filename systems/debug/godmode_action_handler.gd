@@ -93,6 +93,14 @@ func handle_item_command(command: String, context: Dictionary) -> Dictionary:
 		"equip_backpack", "equip basic backpack":
 			context.equip_backpack_item.call(context.basic_backpack_item_definition, "[GodModeItems]")
 			return _handled_result(true, true)
+		"equip_axe", "equip basic axe":
+			context.player_equipment.equip_item(context.basic_axe_item_definition)
+			print("[GodModeItems] Equipped passive axe: %s" % [context.basic_axe_item_definition.id])
+			return _handled_result(true, true)
+		"unequip_axe", "unequip axe":
+			context.player_equipment.unequip_item(EquipmentSlotClass.SlotType.PASSIVE_TOOL)
+			print("[GodModeItems] Unequipped passive axe")
+			return _handled_result(true, true)
 		"unequip_backpack", "unequip backpack":
 			context.player_equipment.unequip_item(EquipmentSlotClass.SlotType.BACKPACK)
 			context.backpack_container.unequip_backpack()

@@ -18,6 +18,7 @@ func draw_world(target: Node2D, context: Dictionary) -> void:
 	_draw_room_bounds(target, context)
 	_draw_surface_props(target, context)
 	_draw_item_drops(target, context)
+	_draw_hovered_interaction_target(target, context)
 
 	if context.debug_enabled:
 		if context.should_show_mining_cone_cursor:
@@ -312,6 +313,23 @@ func _draw_hovered_center(target: Node2D, context: Dictionary) -> void:
 		Vector2(WorldConstantsClass.CELL_SIZE)
 	)
 	target.draw_rect(hovered_rect, GameplayTuningClass.DEBUG_HOVER_CELL_COLOR, false, 1.0)
+
+
+func _draw_hovered_interaction_target(target: Node2D, context: Dictionary) -> void:
+	var interaction_target = context.hovered_hand_interaction_target
+	if interaction_target == null:
+		return
+	if not interaction_target.is_valid():
+		return
+	var target_node: Node = interaction_target.target_node
+	if target_node == null or not is_instance_valid(target_node):
+		return
+	if not target_node.has_method("get_interaction_rect"):
+		return
+
+	var interaction_rect: Rect2 = Rect2(target_node.get_interaction_rect())
+	target.draw_rect(interaction_rect, GameplayTuningClass.INTERACTION_HIGHLIGHT_FILL_COLOR, true)
+	target.draw_rect(interaction_rect, GameplayTuningClass.INTERACTION_HIGHLIGHT_OUTLINE_COLOR, false, 2.0)
 
 
 func _draw_mining_preview(target: Node2D, context: Dictionary) -> void:

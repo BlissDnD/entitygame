@@ -57,7 +57,8 @@ func build_snapshot(
 			gravity_field_system.get_field_count(),
 			"local" if is_player_inside_gravity_field else "global",
 		],
-		"equipment_text": "Equipment: Tool %s  Bag %s  Cursor %s" % [
+		"equipment_text": "Equipment: Passive %s  Tool %s  Bag %s  Cursor %s" % [
+			get_equipped_passive_label(player_equipment),
 			get_equipped_tool_label(player_equipment),
 			get_equipped_backpack_label(player_equipment),
 			player_cursor_controller.get_current_cursor_behavior_name(),
@@ -87,6 +88,14 @@ func get_equipped_backpack_label(player_equipment: PlayerEquipment) -> String:
 		return "empty"
 
 	return String(equipped_backpack.id)
+
+
+func get_equipped_passive_label(player_equipment: PlayerEquipment) -> String:
+	var equipped_passive: ItemDefinition = player_equipment.get_equipped_passive_item()
+	if equipped_passive == null:
+		return "empty"
+
+	return String(equipped_passive.id)
 
 
 func get_backpack_contents_summary(backpack_container: BackpackContainer) -> String:

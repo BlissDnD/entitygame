@@ -38,6 +38,7 @@ func draw(target: Node2D, context: Dictionary) -> Dictionary:
 		"gravity_point_build_mode": context.gravity_point_build_mode,
 		"has_inspected_cell": context.has_inspected_cell,
 		"has_won": context.has_won,
+		"hovered_hand_interaction_target": context.hovered_hand_interaction_target,
 		"hovered_cell": context.hovered_cell,
 		"hovered_drop_index": context.hovered_drop_index,
 		"inspected_cell": context.inspected_cell,

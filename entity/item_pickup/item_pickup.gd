@@ -18,9 +18,19 @@ func _ready() -> void:
 	_refresh_visual()
 
 
-func interact(user: Node = null) -> void:
+func can_interact(user: Node = null, interaction_context: InteractionContext = null) -> bool:
+	if interaction_context == null:
+		return false
+	return get_interaction_rect().intersects(interaction_context.get_player_rect())
+
+
+func interact(user: Node = null, interaction_context: InteractionContext = null) -> void:
 	picked_up.emit(item_definition, user)
 	queue_free()
+
+
+func get_interaction_rect() -> Rect2:
+	return Rect2(global_position - Vector2(12.0, 12.0), Vector2(24.0, 24.0))
 
 
 func _refresh_visual() -> void:

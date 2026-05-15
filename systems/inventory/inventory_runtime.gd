@@ -25,7 +25,7 @@ func _init(
 func equip_backpack_item(item_definition: ItemDefinition, log_prefix: String) -> bool:
 	if item_definition == null:
 		return false
-	if not item_definition.is_backpack or not item_definition.can_be_equipped:
+	if not item_definition.is_backpack_item() or not item_definition.can_be_equipped:
 		return false
 	if player_equipment.get_equipped_backpack() != null:
 		print("%s Cannot equip backpack: backpack slot already occupied" % [log_prefix])
@@ -57,11 +57,17 @@ func try_pick_up_drop(item_drop_data, drop_index: int) -> bool:
 
 	var drop_entry: Dictionary = item_drop_data.get_drop_at_index(drop_index)
 	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 	var amount: int = int(drop_entry.get("amount", 0))
 	var accepted_amount: int = 0
 	if item_kind == "material":
+		var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 		accepted_amount = inventory_data.add_material(item_id, amount)
+	elif item_kind == "item":
+		var item_definition: ItemDefinition = drop_entry.get("item_definition", null)
+		var current_state: StringName = StringName(drop_entry.get("world_state", &""))
+		if item_definition == null or not item_definition.allows_world_action(&"pickup", current_state):
+			return false
+		accepted_amount = add_backpack_stack_amount(item_definition, amount)
 
 	if accepted_amount <= 0:
 		return false
@@ -91,18 +97,31 @@ func get_selected_material_color() -> Color:
 
 func get_drop_item_name(drop_entry: Dictionary) -> String:
 	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 	if item_kind == "material":
+		var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 		return WorldMaterialsClass.get_display_name(item_id)
+	if item_kind == "item":
+		var item_definition: ItemDefinition = drop_entry.get("item_definition", null)
+		if item_definition != null and not item_definition.display_name.is_empty():
+			return item_definition.display_name
+		if item_definition != null:
+			return String(item_definition.id)
 
 	return "ITEM"
 
 
 func get_drop_item_color(drop_entry: Dictionary) -> Color:
 	var item_kind: String = String(drop_entry.get("item_kind", ""))
-	var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 	if item_kind == "material":
+		var item_id: int = int(drop_entry.get("item_id", WorldConstantsClass.CellType.AIR))
 		return WorldMaterialsClass.get_debug_color(item_id)
+	if item_kind == "item":
+		var item_definition: ItemDefinition = drop_entry.get("item_definition", null)
+		if item_definition != null and item_definition.item_category == 0:
+			return Color(0.64, 0.46, 0.24, 1.0)
+		if item_definition != null and item_definition.get_equipment_slot_type() >= 0:
+			return Color(0.9, 0.82, 0.32, 1.0)
+		return Color(0.85, 0.85, 0.88, 1.0)
 
 	return Color(1.0, 1.0, 1.0, 1.0)
 
@@ -147,19 +166,27 @@ func set_inventory_weight_capacity(weight_capacity: float) -> void:
 	inventory_data.set_weight_capacity(clampf(weight_capacity, GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY_MIN, GameplayTuningClass.INVENTORY_WEIGHT_CAPACITY_MAX))
 
 
-func add_backpack_stack(item_definition: ItemDefinition, amount: int) -> void:
+func add_backpack_stack_amount(item_definition: ItemDefinition, amount: int) -> int:
 	if backpack_container.backpack_definition == null:
 		print("[GodModeItems] Cannot add stack: no backpack equipped")
-		return
-	if backpack_container.add_placeholder_stack(item_definition, amount):
-		print("[GodModeItems] Added stack: %s x%d" % [item_definition.id, amount])
+		return 0
+	var accepted_amount: int = backpack_container.add_placeholder_stack_amount(item_definition, amount)
+	if accepted_amount > 0:
+		print("[GodModeItems] Added stack: %s x%d" % [item_definition.id, accepted_amount])
+	return accepted_amount
+
+
+func add_backpack_stack(item_definition: ItemDefinition, amount: int) -> bool:
+	return add_backpack_stack_amount(item_definition, amount) >= amount
 
 
 func print_equipment_state(cursor_behavior_name: String) -> void:
 	var equipped_tool: ItemDefinition = player_equipment.get_equipped_tool()
 	var equipped_backpack: ItemDefinition = player_equipment.get_equipped_backpack()
+	var equipped_passive_item: ItemDefinition = player_equipment.get_equipped_passive_item()
 	print("[GodModeItems] Equipment state:")
 	print("  tool: %s" % [equipped_tool.id if equipped_tool != null else "empty"])
+	print("  passive: %s" % [equipped_passive_item.id if equipped_passive_item != null else "empty"])
 	print("  backpack: %s" % [equipped_backpack.id if equipped_backpack != null else "empty"])
 	print("  cursor: %s" % [cursor_behavior_name])
 

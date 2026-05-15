@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://systems/items/item_definition.gd" id="1_item_definition"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"wood"
+display_name = "Wood"
+description = "Basic chopped wood."
+item_category = 0
+max_stack = 99
+weight = 0.5
+value = 3
+can_be_carried = true
+can_exist_in_world = true
+world_behavior = 1
+is_world_interactable = true
+world_interaction_conditions = Array[StringName]([&"pickup"])
+default_world_state = &"loose"
+max_world_lifespan_seconds = -1.0

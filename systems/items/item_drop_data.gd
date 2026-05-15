@@ -7,7 +7,7 @@ const WorldUtilsClass = preload("res://systems/world/world_utils.gd")
 var drops: Array[Dictionary] = []
 
 
-func add_item_stack(world_position: Vector2, item_kind: String, item_id: int, amount: int = 1, merge_radius_pixels: float = 0.0) -> void:
+func add_item_stack(world_position: Vector2, item_kind: String, item_id, amount: int = 1, merge_radius_pixels: float = 0.0) -> void:
 	if amount <= 0:
 		return
 
@@ -15,7 +15,7 @@ func add_item_stack(world_position: Vector2, item_kind: String, item_id: int, am
 		var drop_entry: Dictionary = drops[drop_index]
 		if String(drop_entry.get("item_kind", "")) != item_kind:
 			continue
-		if int(drop_entry.get("item_id", -1)) != item_id:
+		if drop_entry.get("item_id", -1) != item_id:
 			continue
 
 		var drop_position: Vector2 = Vector2(drop_entry.get("world_position", world_position))
@@ -34,7 +34,32 @@ func add_item_stack(world_position: Vector2, item_kind: String, item_id: int, am
 	})
 
 
+func add_item_definition_stack(world_position: Vector2, item_definition: ItemDefinition, amount: int = 1, merge_radius_pixels: float = 0.0) -> void:
+	if item_definition == null:
+		return
+	add_item_stack(world_position, "item", String(item_definition.id), amount, merge_radius_pixels)
+	var drop_index: int = drops.size() - 1
+	for index in range(drops.size()):
+		var drop_entry: Dictionary = drops[index]
+		if String(drop_entry.get("item_kind", "")) != "item":
+			continue
+		if drop_entry.get("item_id", "") != String(item_definition.id):
+			continue
+		var drop_position: Vector2 = Vector2(drop_entry.get("world_position", world_position))
+		if drop_position.distance_to(world_position) > merge_radius_pixels:
+			continue
+		drop_index = index
+		break
+	var merged_entry: Dictionary = drops[drop_index]
+	merged_entry["item_definition"] = item_definition
+	merged_entry["world_state"] = item_definition.get_default_world_state()
+	merged_entry["world_interaction_conditions"] = item_definition.world_interaction_conditions.duplicate()
+	merged_entry["lifespan_remaining"] = item_definition.get_max_world_lifespan_seconds()
+	drops[drop_index] = merged_entry
+
+
 func update_physics(world_data, delta: float, room_rect: Rect2, gravity: float, pull_radius_pixels: float, merge_radius_pixels: float, gravity_field_system = null) -> void:
+	_update_lifespans(delta)
 	_apply_gravity(world_data, delta, room_rect, gravity, gravity_field_system)
 	_pull_and_merge_matching_items(delta, room_rect, pull_radius_pixels, merge_radius_pixels)
 
@@ -103,6 +128,26 @@ func clear() -> void:
 	drops.clear()
 
 
+func _update_lifespans(delta: float) -> void:
+	var drop_index: int = drops.size() - 1
+	while drop_index >= 0:
+		var drop_entry: Dictionary = drops[drop_index]
+		var lifespan_remaining: float = float(drop_entry.get("lifespan_remaining", -1.0))
+		if lifespan_remaining < 0.0:
+			drop_index -= 1
+			continue
+
+		lifespan_remaining -= delta
+		if lifespan_remaining <= 0.0:
+			drops.remove_at(drop_index)
+			drop_index -= 1
+			continue
+
+		drop_entry["lifespan_remaining"] = lifespan_remaining
+		drops[drop_index] = drop_entry
+		drop_index -= 1
+
+
 func _apply_gravity(world_data, delta: float, room_rect: Rect2, gravity: float, gravity_field_system = null) -> void:
 	for drop_index in range(drops.size()):
 		var drop_entry: Dictionary = drops[drop_index]
@@ -140,7 +185,7 @@ func _pull_and_merge_matching_items(delta: float, room_rect: Rect2, pull_radius_
 	while drop_index < drops.size():
 		var drop_entry: Dictionary = drops[drop_index]
 		var item_kind: String = String(drop_entry.get("item_kind", ""))
-		var item_id: int = int(drop_entry.get("item_id", -1))
+		var item_id = drop_entry.get("item_id", -1)
 		var world_position: Vector2 = Vector2(drop_entry.get("world_position", Vector2.ZERO))
 		var merge_target_index: int = -1
 		var merge_target_distance: float = INF
@@ -152,7 +197,7 @@ func _pull_and_merge_matching_items(delta: float, room_rect: Rect2, pull_radius_
 			var other_entry: Dictionary = drops[other_index]
 			if String(other_entry.get("item_kind", "")) != item_kind:
 				continue
-			if int(other_entry.get("item_id", -1)) != item_id:
+			if other_entry.get("item_id", -1) != item_id:
 				continue
 			if int(other_entry.get("amount", 0)) < int(drop_entry.get("amount", 0)):
 				continue

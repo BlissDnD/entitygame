@@ -4,6 +4,7 @@ extends RefCounted
 enum SlotType {
 	BACKPACK,
 	PRIMARY_TOOL,
+	PASSIVE_TOOL,
 	SECONDARY_TOOL,
 	WEAPON,
 	SUIT,
